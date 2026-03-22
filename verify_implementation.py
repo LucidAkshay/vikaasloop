@@ -4,15 +4,17 @@
 # Smoke tests for core components
 
 import asyncio
-import os
 import gc
-import time
-import logging
 import json
+import logging
+import os
 import tempfile
+import time
+
 import jwt
 
 logging.basicConfig(level=logging.INFO)
+
 
 def _remove_db_safe(path: str, retries: int = 8, delay: float = 0.3) -> None:
     """Windows safe SQLite file removal for WAL mode sidecars."""
@@ -30,14 +32,16 @@ def _remove_db_safe(path: str, retries: int = 8, delay: float = 0.3) -> None:
                 else:
                     print(f"  Warning: could not remove {target} locked.")
 
+
 # ===========================================================================
 # Formatter & DataGen
 # ===========================================================================
 
+
 async def verify_logic_units():
     print("\n=== Verifying Logic Units ===")
+    from agents.datagen_agent import _deduplicate, clean_gemini_json_response
     from utils.formatter import format_training_pair
-    from agents.datagen_agent import clean_gemini_json_response, _deduplicate
 
     # Formatter Test
     res = format_training_pair("Q", "A")
@@ -52,18 +56,23 @@ async def verify_logic_units():
     print("  JSON Cleaner: PASS")
 
     # Deduplication Test
-    pairs = [{"instruction": "A", "response": "1"}, {"instruction": "A", "response": "2"}]
+    pairs = [
+        {"instruction": "A", "response": "1"},
+        {"instruction": "A", "response": "2"},
+    ]
     assert len(_deduplicate(pairs)) == 1
     print("  Deduplicator: PASS")
+
 
 # ===========================================================================
 # Security & Config
 # ===========================================================================
 
+
 async def verify_security_and_config():
     print("\n=== Verifying Security & Config ===")
-    from config import settings
     from agents.orchestrator import sanitize_run_id
+    from config import settings
 
     # Config Consistency Test
     s1 = settings.get_jwt_secret
@@ -86,9 +95,11 @@ async def verify_security_and_config():
     except ValueError:
         print("  Orchestrator Sanitizer: PASS")
 
+
 # ===========================================================================
 # Data Components
 # ===========================================================================
+
 
 async def verify_data_components():
     print("\n=== Verifying Data Components ===")
@@ -96,7 +107,9 @@ async def verify_data_components():
     from agents.skills_library import SkillsLibrary
 
     # DataPartitioner Test
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False, encoding="utf-8") as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+    ) as f:
         tmp_path = f.name
         for i in range(20):
             f.write(json.dumps({"instruction": f"Q{i}", "response": f"A{i}"}) + "\n")
@@ -107,8 +120,10 @@ async def verify_data_components():
             assert len(ef.readlines()) == 5
         print("  DataPartitioner: PASS")
     finally:
-        if os.path.exists(tmp_path): os.remove(tmp_path)
-        if 'eval_path' in locals() and os.path.exists(eval_path): os.remove(eval_path)
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        if "eval_path" in locals() and os.path.exists(eval_path):
+            os.remove(eval_path)
 
     # Skills Library vectorized similarity test
     db_path = "data/test_verify.db"
@@ -116,19 +131,21 @@ async def verify_data_components():
     lib = SkillsLibrary(db_path=db_path)
     lib.update_strategy_score("Python test", "StratA", "coding", 1, 0.9)
     lib.update_strategy_score("Python test", "StratA", "coding", 2, 0.95)
-    
+
     tops = lib.get_top_strategies("Python coding")
     assert len(tops) > 0 and tops[0] == "StratA"
     print("  Skills Library (Vectorized): PASS")
-    
+
     del lib
     gc.collect()
     time.sleep(0.5)
     _remove_db_safe(db_path)
 
+
 # ===========================================================================
 # Main Execution
 # ===========================================================================
+
 
 async def main():
     print("=" * 60)
@@ -139,7 +156,7 @@ async def main():
         await verify_logic_units()
         await verify_security_and_config()
         await verify_data_components()
-        
+
         print("\n" + "=" * 60)
         print("  ALL VERIFICATIONS PASSED")
         print("  VikaasLoop is ready for deployment.")
@@ -147,6 +164,7 @@ async def main():
     except Exception as e:
         print(f"\n!! VERIFICATION FAILED: {e}")
         exit(1)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

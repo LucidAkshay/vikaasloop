@@ -4,32 +4,26 @@
 # TrainingAgent: fine-tunes a base model with a QLoRA adapter using TRL SFTTrainer.
 # One instance per training run. Not shared between iterations.
 
-import os
-import time
 import asyncio
+import logging
+import os
 import re
 import threading
-import logging
-import bitsandbytes  # Required for Windows environment variable setup and 4-bit optimisers
+import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Dict, Any
+from typing import Any, Dict
 
+import bitsandbytes  # Required for Windows environment variable setup and 4-bit optimisers
 import torch
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    TrainingArguments,
-    TrainerCallback,
-    TrainerControl,
-    TrainerState,
-)
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from trl import SFTTrainer
 from datasets import load_dataset
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                          BitsAndBytesConfig, TrainerCallback, TrainerControl,
+                          TrainerState, TrainingArguments)
+from trl import SFTTrainer
 
-from utils.websocket_manager import ws_manager
 from utils.formatter import format_training_pair
+from utils.websocket_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +51,7 @@ MAX_TOKENIZER_CACHE_SIZE = 2
 # Loss streaming callback
 # ---------------------------------------------------------------------------
 
+
 class LossStreamingCallback(TrainerCallback):
     """Streams training loss to the frontend via the shared WebSocket manager."""
 
@@ -81,7 +76,11 @@ class LossStreamingCallback(TrainerCallback):
                 asyncio.run_coroutine_threadsafe(
                     ws_manager.broadcast(
                         self.run_id,
-                        {"type": "train_step", "step": state.global_step, "loss": last["loss"]},
+                        {
+                            "type": "train_step",
+                            "step": state.global_step,
+                            "loss": last["loss"],
+                        },
                     ),
                     self.loop,
                 )
@@ -92,6 +91,7 @@ class LossStreamingCallback(TrainerCallback):
 # ---------------------------------------------------------------------------
 # TrainingAgent
 # ---------------------------------------------------------------------------
+
 
 class TrainingAgent:
     """
@@ -147,8 +147,15 @@ class TrainingAgent:
         if "phi-2" in name:
             return ["Wqkv", "out_proj", "fc1", "fc2"]
         if "llama" in name or "gemma" in name:
-            return ["q_proj", "k_proj", "v_proj", "o_proj",
-                    "gate_proj", "up_proj", "down_proj"]
+            return [
+                "q_proj",
+                "k_proj",
+                "v_proj",
+                "o_proj",
+                "gate_proj",
+                "up_proj",
+                "down_proj",
+            ]
         return "all-linear"
 
     def _setup_tokenizer(self) -> AutoTokenizer:
@@ -175,7 +182,11 @@ class TrainingAgent:
 
     def _load_fresh_model(self) -> AutoModelForCausalLM:
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        compute_dtype = torch.bfloat16 if device == "cuda" and torch.cuda.is_bf16_supported() else torch.float16
+        compute_dtype = (
+            torch.bfloat16
+            if device == "cuda" and torch.cuda.is_bf16_supported()
+            else torch.float16
+        )
 
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
@@ -183,19 +194,19 @@ class TrainingAgent:
             bnb_4bit_compute_dtype=compute_dtype,
             bnb_4bit_use_double_quant=True,
         )
-        
+
         model = AutoModelForCausalLM.from_pretrained(
             self.base_model_name,
             quantization_config=bnb_config if device == "cuda" else None,
             device_map="auto" if device == "cuda" else None,
         )
-        
+
         # Required for gradient checkpointing
-        model.config.use_cache = False 
-        
+        model.config.use_cache = False
+
         if device == "cuda":
             model = prepare_model_for_kbit_training(model)
-            
+
         return model
 
     def _wrap_with_lora(self, base_model) -> Any:
@@ -242,9 +253,7 @@ class TrainingAgent:
 
         if "text" not in dataset.column_names:
             logger.info("Formatting dataset into 'text' column.")
-            dataset = dataset.map(
-                lambda ex: {"text": format_training_pair(ex)}
-            )
+            dataset = dataset.map(lambda ex: {"text": format_training_pair(ex)})
 
         if not dataset or len(dataset) == 0:
             raise ValueError("Training dataset is empty.")
@@ -281,7 +290,7 @@ class TrainingAgent:
 
         # Re-enable cache for inference after training
         model.config.use_cache = True
-        
+
         model.save_pretrained(self.adapter_path)
         tokenizer.save_pretrained(self.adapter_path)
 

@@ -6,17 +6,17 @@
 #   GET  /api/eval/results     - list all past experiments
 #   GET  /api/eval/results/:id - detail for one experiment
 
-import uuid
 import asyncio
 import logging
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 import database
-from agents.model_manager import ModelManager
 from agents.eval_agent import EvalAgent
+from agents.model_manager import ModelManager
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,9 @@ async def _run_and_save(
             _model_manager.release()
             logger.info(f"Standalone Eval run {run_id} VRAM released.")
         except Exception as cleanup_exc:
-            logger.warning(f"Failed to release VRAM after standalone eval: {cleanup_exc}")
+            logger.warning(
+                f"Failed to release VRAM after standalone eval: {cleanup_exc}"
+            )
 
 
 @router.post("/run")

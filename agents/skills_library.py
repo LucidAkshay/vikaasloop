@@ -4,12 +4,13 @@
 # SkillsLibrary: persistent store of "what data strategies worked on what tasks".
 # Strategies are retrieved by cosine similarity of task embeddings, weighted by win rate.
 
-import sqlite3
-import numpy as np
-import os
 import logging
+import os
+import sqlite3
 from contextlib import closing
 from typing import List, Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class SkillsLibrary:
     def _encoder(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
+
             logger.info(f"Loading SentenceTransformer '{self._model_name}'")
             self._model = SentenceTransformer(self._model_name)
             logger.info("SentenceTransformer loaded.")
@@ -45,7 +47,7 @@ class SkillsLibrary:
         db_dir = os.path.dirname(self.db_path)
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)
-            
+
         with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("""
@@ -61,8 +63,7 @@ class SkillsLibrary:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_task_type "
-                "ON strategies (task_type);"
+                "CREATE INDEX IF NOT EXISTS idx_task_type " "ON strategies (task_type);"
             )
             conn.commit()
 
@@ -109,7 +110,7 @@ class SkillsLibrary:
 
         seen = set()
         top = []
-        
+
         for idx in scored_indices:
             name = names[idx]
             if name not in seen:
@@ -131,7 +132,8 @@ class SkillsLibrary:
         embedding = self._encode(task_description).tobytes()
 
         with closing(sqlite3.connect(self.db_path, timeout=30.0)) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO strategies
                     (strategy_name, task_type, win_rate, iteration_number,
                      task_embedding, task_description)
@@ -141,8 +143,16 @@ class SkillsLibrary:
                     win_rate         = excluded.win_rate,
                     iteration_number = excluded.iteration_number,
                     task_type        = excluded.task_type
-            """, (strategy_name, task_type, win_rate,
-                  iteration_number, embedding, task_description))
+            """,
+                (
+                    strategy_name,
+                    task_type,
+                    win_rate,
+                    iteration_number,
+                    embedding,
+                    task_description,
+                ),
+            )
             conn.commit()
 
         logger.debug(

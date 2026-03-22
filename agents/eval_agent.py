@@ -5,13 +5,14 @@
 # Calculates win rates and provides qualitative comparisons.
 
 import asyncio
-import logging
 import json
+import logging
 import os
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from google import genai
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_exponential)
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +39,15 @@ class EvalAgent:
     # Data loading
     # ------------------------------------------------------------------
 
-    async def _load_eval_dataset(self, path: str, loop_id: str = None, queue: asyncio.Queue = None) -> List[dict]:
+    async def _load_eval_dataset(
+        self, path: str, loop_id: str = None, queue: asyncio.Queue = None
+    ) -> List[dict]:
         """Loads the evaluation dataset with a simple in memory cache."""
         if path in self._dataset_cache:
             return self._dataset_cache[path]
 
         try:
+
             def _read_sync():
                 if not path or not os.path.exists(path):
                     raise FileNotFoundError(f"Eval dataset not found at: {path}")
@@ -62,7 +66,9 @@ class EvalAgent:
             msg = f"Eval Error: Could not load {path} {exc}"
             logger.error(msg)
             if queue and loop_id:
-                await queue.put({"loop_id": loop_id, "type": "loop_error", "message": msg})
+                await queue.put(
+                    {"loop_id": loop_id, "type": "loop_error", "message": msg}
+                )
             return []
 
     # ------------------------------------------------------------------
@@ -86,7 +92,9 @@ class EvalAgent:
         dataset = dataset[:num_samples]
         prompts = [item.get("prompt", "") for item in dataset]
 
-        logger.info(f"Generating {len(prompts)} responses for Base Model: {base_model_name}")
+        logger.info(
+            f"Generating {len(prompts)} responses for Base Model: {base_model_name}"
+        )
         base_responses = await self.model_manager.generate_batch(
             base_model_name, None, prompts
         )
@@ -97,9 +105,7 @@ class EvalAgent:
         )
 
         response_tuples = list(zip(prompts, base_responses, adapter_responses))
-        judge_results = await self._judge_parallel(
-            task_description, response_tuples
-        )
+        judge_results = await self._judge_parallel(task_description, response_tuples)
 
         return self._aggregate_results(judge_results)
 
@@ -138,7 +144,7 @@ class EvalAgent:
         retry=retry_if_exception_type(Exception),
         wait=wait_exponential(min=1, max=10),
         stop=stop_after_attempt(3),
-        reraise=True
+        reraise=True,
     )
     async def _call_gemini_api(self, prompt_content: str) -> str:
         """Module level retrier to prevent recompiling wrappers on every call."""
@@ -156,7 +162,7 @@ class EvalAgent:
         response_b: str,
     ) -> str:
         """Asynchronous Gemini judge call."""
-        
+
         safe_prompt = self._sanitize_prompt(prompt)
         safe_resp_a = self._sanitize_prompt(response_a)
         safe_resp_b = self._sanitize_prompt(response_b)
@@ -205,7 +211,7 @@ VERDICT (A/B/T):"""
         if text.startswith("```"):
             newline = text.find("\n")
             if newline != -1:
-                text = text[newline + 1:]
+                text = text[newline + 1 :]
             if text.endswith("```"):
                 text = text[:-3].strip()
         return text.strip()
@@ -214,11 +220,16 @@ VERDICT (A/B/T):"""
     def parse_judge_verdict(response_text: str) -> str:
         """Robustly parse the one word verdict."""
         text = response_text.strip().upper()
-        if "A" in text and "B" not in text and "TIE" not in text: return "A"
-        if "B" in text and "A" not in text and "TIE" not in text: return "B"
-        if "TIE" in text or "T" in text: return "T"
-        if "RESPONSE A IS BETTER" in text: return "A"
-        if "RESPONSE B IS BETTER" in text: return "B"
+        if "A" in text and "B" not in text and "TIE" not in text:
+            return "A"
+        if "B" in text and "A" not in text and "TIE" not in text:
+            return "B"
+        if "TIE" in text or "T" in text:
+            return "T"
+        if "RESPONSE A IS BETTER" in text:
+            return "A"
+        if "RESPONSE B IS BETTER" in text:
+            return "B"
         return "T"
 
     # ------------------------------------------------------------------
@@ -247,17 +258,19 @@ VERDICT (A/B/T):"""
                 ties += 1
 
             if valid_sample_count < 5:
-                comparisons.append({
-                    "prompt": prompt[:200],
-                    "base_response": base_r[:300],
-                    "adapter_response": adapter_r[:300],
-                    "verdict": parsed,
-                })
+                comparisons.append(
+                    {
+                        "prompt": prompt[:200],
+                        "base_response": base_r[:300],
+                        "adapter_response": adapter_r[:300],
+                        "verdict": parsed,
+                    }
+                )
                 valid_sample_count += 1
 
         valid_total = wins_a + wins_b + ties
         total_attempts = valid_total + errors
-        
+
         win_rate = wins_b / valid_total if valid_total > 0 else 0.0
 
         return {

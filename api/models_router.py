@@ -4,10 +4,10 @@
 # Endpoint that scans the models/ directory for completed fine-tuned adapters
 # and returns metadata for the Model Export view in the dashboard.
 
-import os
-import json
 import asyncio
+import json
 import logging
+import os
 from typing import Any, Dict, List
 
 from fastapi import APIRouter
@@ -57,16 +57,18 @@ def _scan_adapters() -> List[Dict[str, Any]]:
                         except OSError as e:
                             logger.warning(f"Could not read size of {full_path}: {e}")
 
-                results.append({
-                    "run_id": run_dir,
-                    "adapter_path": candidate,
-                    "base_model": config.get("base_model_name_or_path", "unknown"),
-                    "lora_r": config.get("r", "?"),
-                    "created_at": stat.st_mtime,
-                    "size_mb": round(total_size / (1024 * 1024), 1),
-                })
-                break   # found adapter in this run_dir — no need to check subdirs
-                
+                results.append(
+                    {
+                        "run_id": run_dir,
+                        "adapter_path": candidate,
+                        "base_model": config.get("base_model_name_or_path", "unknown"),
+                        "lora_r": config.get("r", "?"),
+                        "created_at": stat.st_mtime,
+                        "size_mb": round(total_size / (1024 * 1024), 1),
+                    }
+                )
+                break  # found adapter in this run_dir — no need to check subdirs
+
             except Exception as exc:
                 logger.error(f"Error scanning candidate adapter {candidate}: {exc}")
 

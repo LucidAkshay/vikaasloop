@@ -5,10 +5,10 @@
 # Has zero knowledge of evaluation logic, judging, or scoring.
 # EvalAgent depends on this; nothing else should need to.
 
+import asyncio
 import gc
 import logging
-import asyncio
-from typing import Optional, List
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,9 @@ class ModelManager:
 
         from peft import PeftModel
 
-        self._adapter_model = None   # free previous adapter before loading new one
+        self._adapter_model = None  # free previous adapter before loading new one
         self._gc()
-        
+
         self._adapter_model = PeftModel.from_pretrained(self._base_model, adapter_path)
         self._adapter_model.eval()
         self._adapter_path = adapter_path
@@ -165,16 +165,17 @@ class ModelManager:
     # ------------------------------------------------------------------
 
     async def generate_batch(
-        self, 
-        base_model_name: str, 
-        adapter_path: Optional[str], 
-        prompts: List[str], 
-        max_new_tokens: int = 256
+        self,
+        base_model_name: str,
+        adapter_path: Optional[str],
+        prompts: List[str],
+        max_new_tokens: int = 256,
     ) -> List[str]:
         """
         Asynchronous wrapper to generate responses for a list of prompts.
         This resolves the missing method error expected by the EvalAgent.
         """
+
         def _run_batch_sync():
             if adapter_path:
                 self.ensure_adapter_loaded(base_model_name, adapter_path)
@@ -184,16 +185,16 @@ class ModelManager:
                 target_model = self.base_model
 
             import torch
-            
+
             # Process in small chunks to avoid VRAM OOM during evaluation
             chunk_size = 4
             all_responses = []
-            
+
             device = next(target_model.parameters()).device
-            
+
             for i in range(0, len(prompts), chunk_size):
-                chunk = prompts[i:i + chunk_size]
-                
+                chunk = prompts[i : i + chunk_size]
+
                 inputs = self.tokenizer(
                     chunk,
                     return_tensors="pt",
@@ -216,9 +217,11 @@ class ModelManager:
                 input_length = inputs["input_ids"].shape[1]
                 for idx, out_id in enumerate(output_ids):
                     new_tokens = out_id[input_length:]
-                    response_text = self.tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+                    response_text = self.tokenizer.decode(
+                        new_tokens, skip_special_tokens=True
+                    ).strip()
                     all_responses.append(response_text)
-                    
+
             return all_responses
 
         # Offload the heavy GPU processing to a background thread
@@ -259,6 +262,7 @@ class ModelManager:
     def _gc() -> None:
         """Garbage-collect and flush CUDA cache if available."""
         import torch
+
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()

@@ -29,10 +29,10 @@ def _get_strategies(task_type: Optional[str] = None, search: Optional[str] = Non
     """Fetch strategies directly from SQLite with native SQL filtering."""
     if not os.path.exists(settings.SKILLS_DB_PATH):
         return []
-        
+
     with closing(sqlite3.connect(settings.SKILLS_DB_PATH, timeout=10.0)) as conn:
         conn.row_factory = sqlite3.Row
-        
+
         query = """
             SELECT id, strategy_name, task_type, win_rate, 
                    iteration_number, task_description, created_at 
@@ -40,18 +40,20 @@ def _get_strategies(task_type: Optional[str] = None, search: Optional[str] = Non
             WHERE 1=1
         """
         params = []
-        
+
         if task_type:
             query += " AND LOWER(task_type) = LOWER(?)"
             params.append(task_type)
-            
+
         if search:
-            query += " AND (LOWER(strategy_name) LIKE ? OR LOWER(task_description) LIKE ?)"
+            query += (
+                " AND (LOWER(strategy_name) LIKE ? OR LOWER(task_description) LIKE ?)"
+            )
             search_term = f"%{search.lower()}%"
             params.extend([search_term, search_term])
-            
+
         query += " ORDER BY win_rate DESC"
-        
+
         try:
             rows = conn.execute(query, params).fetchall()
             return [dict(r) for r in rows]
@@ -63,7 +65,9 @@ def _get_strategies(task_type: Optional[str] = None, search: Optional[str] = Non
 @router.get("/list")
 async def list_strategies(
     task_type: Optional[str] = Query(None, description="Filter by task type"),
-    search: Optional[str] = Query(None, description="Search in strategy name or description"),
+    search: Optional[str] = Query(
+        None, description="Search in strategy name or description"
+    ),
 ):
     """
     Return stored strategies sorted by win rate.

@@ -4,10 +4,12 @@
 # Single source of truth for instruction/response formatting.
 # Called by DataGenAgent, TrainingAgent, and the scoring pipeline.
 
-from typing import Union, Dict, Any
+from typing import Any, Dict, Union
 
 
-def format_training_pair(instruction_or_dict: Union[str, Dict[str, Any]], response: Any = None) -> str:
+def format_training_pair(
+    instruction_or_dict: Union[str, Dict[str, Any]], response: Any = None
+) -> str:
     """
     Format an instruction and response pair into the standard training text.
     Enforces strict string conversion to prevent crashes from LLM hallucinations.

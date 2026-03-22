@@ -4,15 +4,16 @@
 # SQLite persistence for evaluation experiments and comparison results.
 # Uses WAL journal mode for concurrent read/write access.
 
-import sqlite3
-import os
 import logging
-from contextlib import contextmanager, closing
+import os
+import sqlite3
+from contextlib import closing, contextmanager
 from typing import Any, Dict, List, Optional
 
 from config import settings
 
 logger = logging.getLogger(__name__)
+
 
 @contextmanager
 def _get_conn():
@@ -22,10 +23,10 @@ def _get_conn():
     Always uses WAL mode and row_factory for dict like access.
     """
     db_path = os.path.abspath(settings.DB_PATH)
-    
+
     # Ensure the directory exists before attempting connection
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    
+
     # CRITICAL FIX : sqlite3.connect context manager does NOT close the connection.
     # We wrap it in closing() to ensure file descriptors are released to the OS.
     with closing(sqlite3.connect(db_path, timeout=30.0)) as conn:
@@ -39,6 +40,7 @@ def _get_conn():
             conn.rollback()
             logger.error(f"Database transaction failed : {exc}")
             raise
+
 
 def init_db() -> None:
     """Create tables if they do not exist. Safe to call on every startup."""
@@ -78,6 +80,7 @@ def init_db() -> None:
         )
         logger.info("Database schema verified/initialized.")
 
+
 def save_experiment(
     run_id: str,
     base_model: str,
@@ -96,41 +99,62 @@ def save_experiment(
     Uses executemany for high performance batch insertion.
     """
     with _get_conn() as conn:
-        cursor = conn.execute("""
+        cursor = conn.execute(
+            """
             INSERT INTO experiments (
                 run_id, base_model, finetuned_model, win_rate, score_delta,
                 total_comparisons, a_wins, b_wins, ties, task_description
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            run_id, base_model, finetuned_model, win_rate, score_delta,
-            total_comparisons, a_wins, b_wins, ties, task_description,
-        ))
+        """,
+            (
+                run_id,
+                base_model,
+                finetuned_model,
+                win_rate,
+                score_delta,
+                total_comparisons,
+                a_wins,
+                b_wins,
+                ties,
+                task_description,
+            ),
+        )
         exp_id = cursor.lastrowid
 
         # Prepare batch for comparisons to avoid N execution overhead
         comp_data = []
         for comp in comparisons:
             # Robust key mapping for EvalAgent flexibility
-            f_resp = comp.get("finetuned_response") or comp.get("adapter_response") or ""
+            f_resp = (
+                comp.get("finetuned_response") or comp.get("adapter_response") or ""
+            )
             verdict = comp.get("verdict") or comp.get("judge_verdict") or "T"
-            
-            comp_data.append((
-                exp_id,
-                comp.get("prompt", ""),
-                comp.get("base_response", ""),
-                f_resp,
-                verdict
-            ))
+
+            comp_data.append(
+                (
+                    exp_id,
+                    comp.get("prompt", ""),
+                    comp.get("base_response", ""),
+                    f_resp,
+                    verdict,
+                )
+            )
 
         if comp_data:
-            conn.executemany("""
+            conn.executemany(
+                """
                 INSERT INTO comparisons
                     (experiment_id, prompt, base_response, finetuned_response, judge_verdict)
                 VALUES (?, ?, ?, ?, ?)
-            """, comp_data)
+            """,
+                comp_data,
+            )
 
-    logger.info(f"Saved experiment {run_id} (ID: {exp_id}) with {len(comp_data)} comparisons.")
+    logger.info(
+        f"Saved experiment {run_id} (ID: {exp_id}) with {len(comp_data)} comparisons."
+    )
     return exp_id or 0
+
 
 def get_experiments() -> List[Dict[str, Any]]:
     """Return all experiments ordered newest first for the dashboard."""
@@ -140,6 +164,7 @@ def get_experiments() -> List[Dict[str, Any]]:
         ).fetchall()
     return [dict(r) for r in rows]
 
+
 def get_latest_experiment() -> Optional[Dict[str, Any]]:
     """Fetches the most recent run to calculate the win rate delta."""
     with _get_conn() as conn:
@@ -148,24 +173,25 @@ def get_latest_experiment() -> Optional[Dict[str, Any]]:
         ).fetchone()
     return dict(row) if row else None
 
+
 def get_experiment_details(run_id: str) -> Optional[Dict[str, Any]]:
     """Return a full experiment object including its nested list of comparisons."""
     with _get_conn() as conn:
         exp_row = conn.execute(
             "SELECT * FROM experiments WHERE run_id = ?", (run_id,)
         ).fetchone()
-        
+
         if not exp_row:
             return None
-            
+
         exp = dict(exp_row)
         comp_rows = conn.execute(
             "SELECT * FROM comparisons WHERE experiment_id = ? ORDER BY id ASC",
             (exp["id"],),
         ).fetchall()
-        
+
         exp["comparisons"] = [dict(r) for r in comp_rows]
         # UI safety fallback
         exp["total_comparisons"] = exp.get("total_comparisons", len(exp["comparisons"]))
-        
+
     return exp

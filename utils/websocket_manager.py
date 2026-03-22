@@ -21,12 +21,16 @@ class WebSocketManager:
     def __init__(self):
         self._connections: Dict[str, List[WebSocket]] = {}
 
-    async def connect(self, run_id: str, websocket: WebSocket, subprotocol: str = None) -> None:
+    async def connect(
+        self, run_id: str, websocket: WebSocket, subprotocol: str = None
+    ) -> None:
         """Accepts the WebSocket connection, echoing the requested subprotocol if provided."""
         await websocket.accept(subprotocol=subprotocol)
         self._connections.setdefault(run_id, []).append(websocket)
-        logger.debug(f"[{run_id}] Training WebSocket connected. "
-                     f"Total: {len(self._connections[run_id])}")
+        logger.debug(
+            f"[{run_id}] Training WebSocket connected. "
+            f"Total: {len(self._connections[run_id])}"
+        )
 
     def disconnect(self, run_id: str, websocket: WebSocket) -> None:
         conns = self._connections.get(run_id, [])

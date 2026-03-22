@@ -2,33 +2,44 @@
 # AGPL v3 / VikaasLoop
 
 import sys
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 from setuptools.command.install import install
+
 
 class PostInstallCommand(install):
     """Post installation script to check for CUDA availability."""
+
     def run(self):
         install.run(self)
         try:
             import torch
+
             if torch.cuda.is_available():
-                print("\n" + "="*50)
-                print("✅ CUDA is available. VikaasLoop Training Agent is fully supported!")
-                print("="*50 + "\n")
+                print("\n" + "=" * 50)
+                print(
+                    "✅ CUDA is available. VikaasLoop Training Agent is fully supported!"
+                )
+                print("=" * 50 + "\n")
             else:
                 self._print_cuda_warning()
         except ImportError:
             self._print_cuda_warning()
 
     def _print_cuda_warning(self):
-        print("\n" + "!"*60)
-        print("⚠️  WARNING: CUDA is not available or PyTorch is not compiled with CUDA support.")
+        print("\n" + "!" * 60)
+        print(
+            "⚠️  WARNING: CUDA is not available or PyTorch is not compiled with CUDA support."
+        )
         print("The VikaasLoop Training Agent highly recommends an NVIDIA GPU.")
         print("To train models locally, please ensure:")
         print("  1. You have an NVIDIA GPU.")
         print("  2. The correct CUDA toolkit is installed.")
-        print("  3. Install CUDA enabled PyTorch: pip install torch --index-url https://download.pytorch.org/whl/cu118")
-        print("!"*60 + "\n")
+        print(
+            "  3. Install CUDA enabled PyTorch: pip install torch --index-url https://download.pytorch.org/whl/cu118"
+        )
+        print("!" * 60 + "\n")
+
 
 setup(
     name="vikaasloop",
@@ -61,7 +72,7 @@ setup(
         "dev": ["pytest>=8.0.0", "black>=24.2.0", "isort>=5.13.2", "flake8>=7.0.0"],
     },
     cmdclass={
-        'install': PostInstallCommand,
+        "install": PostInstallCommand,
     },
     classifiers=[
         "Programming Language :: Python :: 3.11",

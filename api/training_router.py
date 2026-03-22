@@ -1,16 +1,18 @@
 # api/training_router.py
 # AGPL v3 - VikaasLoop
 
-import os
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
-import jwt
+import os
 
-from utils.websocket_manager import ws_manager
+import jwt
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+
 from config import settings
+from utils.websocket_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
 
 @router.websocket("/ws/training/{run_id}")
 async def training_websocket(websocket: WebSocket, run_id: str):
@@ -23,7 +25,7 @@ async def training_websocket(websocket: WebSocket, run_id: str):
         "ALLOWED_ORIGINS",
         "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000",
     ).split(",")
-    
+
     if origin and origin not in allowed_origins:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return

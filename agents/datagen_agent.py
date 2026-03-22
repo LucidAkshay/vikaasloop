@@ -4,20 +4,21 @@
 # DataGenAgent: generates diverse, high-quality training pairs using Gemini Flash.
 # Runs generation, deduplication, quality scoring, and JSONL persistence.
 
-import os
-import json
-import uuid
 import asyncio
+import json
 import logging
+import os
 import re
+import uuid
 from typing import Any, Dict, List, Optional
 
 from google import genai
 from google.genai import types
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
+                      wait_exponential)
 
-from utils.formatter import format_training_pair
 from config import settings
+from utils.formatter import format_training_pair
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ def _get_semaphore() -> asyncio.Semaphore:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def clean_gemini_json_response(raw_text: str) -> str:
     """Safely strip markdown code-block wrappers, including '```json' tags."""
     text = raw_text.strip()
@@ -65,9 +67,11 @@ def clean_gemini_json_response(raw_text: str) -> str:
     text = re.sub(r"\s*```$", "", text)
     return text.strip()
 
+
 # ---------------------------------------------------------------------------
 # Gemini API call with retry
 # ---------------------------------------------------------------------------
+
 
 @retry(
     retry=retry_if_exception_type(Exception),
@@ -90,10 +94,10 @@ async def _call_gemini(prompt: str, mime: str = "application/json") -> str:
 # Generation
 # ---------------------------------------------------------------------------
 
-_EXAMPLE_PAIR = '''{
+_EXAMPLE_PAIR = """{
   "instruction": "Explain what a Python list comprehension is and give an example.",
   "response": "A list comprehension is a concise way to create lists in Python. Example: squares = [x**2 for x in range(10)]. You can also filter: evens = [x for x in range(20) if x % 2 == 0]"
-}'''
+}"""
 
 
 async def _generate_batch(
@@ -135,6 +139,7 @@ JSON array:"""
 # Deduplication
 # ---------------------------------------------------------------------------
 
+
 def _deduplicate(pairs: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
     Exact-match deduplication on the instruction field.
@@ -148,22 +153,23 @@ def _deduplicate(pairs: List[Dict[str, str]]) -> List[Dict[str, str]]:
             continue
         instruction = pair.get("instruction", "").strip()
         response = pair.get("response", "").strip()
-        
+
         if not instruction or not response:
             continue
-            
+
         if instruction in seen:
             continue
-            
+
         seen.add(instruction)
         result.append({"instruction": instruction, "response": response})
-        
+
     return result
 
 
 # ---------------------------------------------------------------------------
 # Quality scoring
 # ---------------------------------------------------------------------------
+
 
 async def _score_batch(pairs: List[Dict[str, str]]) -> List[Dict[str, Any]]:
     """Score a batch of pairs 1 to 5 using Gemini. Returns pairs with quality_score added."""
@@ -210,7 +216,7 @@ Return ONLY the JSON array. No markdown, no explanation."""
             p["quality_score"] = max(1, min(5, int(raw_score)))
         except (ValueError, TypeError):
             p["quality_score"] = 3
-            
+
         p["text"] = format_training_pair(p["instruction"], p["response"])
         result.append(p)
 
@@ -220,6 +226,7 @@ Return ONLY the JSON array. No markdown, no explanation."""
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
+
 
 def _save_jsonl(run_id: str, pairs: List[Dict[str, Any]]) -> str:
     """Write pairs to data/generated/run_id.jsonl. Returns the file path."""
@@ -241,6 +248,7 @@ def _save_jsonl(run_id: str, pairs: List[Dict[str, Any]]) -> str:
 # ---------------------------------------------------------------------------
 # Public pipeline
 # ---------------------------------------------------------------------------
+
 
 async def run_datagen_pipeline(
     task_description: str,
@@ -272,7 +280,7 @@ async def run_datagen_pipeline(
     all_pairs: List[Dict] = []
     for batch in raw_batches:
         all_pairs.extend(batch)
-        
+
     logger.info(f"DataGen: generated {len(all_pairs)} raw pairs.")
 
     # 2. Deduplicate
@@ -307,5 +315,6 @@ async def run_datagen_pipeline(
         "strategy_used": strategy_hint,
         "filename": filename,
     }
+
 
 # EOF

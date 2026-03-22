@@ -5,22 +5,22 @@
 # Owns the ModelManager lifecycle and all agent instances.
 
 import asyncio
-import uuid
 import json
 import logging
 import os
 import re
+import uuid
 from collections import deque
 from typing import Dict, Optional
 
-from fastapi import WebSocket, APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, WebSocket, status
 from pydantic import BaseModel, Field
 
-from agents.skills_library import SkillsLibrary
-from agents.model_manager import ModelManager
 from agents.datagen_agent import run_datagen_pipeline as _datagen_pipeline
-from agents.training_agent import TrainingAgent
 from agents.eval_agent import EvalAgent
+from agents.model_manager import ModelManager
+from agents.skills_library import SkillsLibrary
+from agents.training_agent import TrainingAgent
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # ===========================================================================
 # Path helpers
 # ===========================================================================
+
 
 def sanitize_run_id(run_id: str) -> str:
     if not run_id:
@@ -41,9 +42,11 @@ def sanitize_run_id(run_id: str) -> str:
         )
     return str(run_id)
 
+
 # ===========================================================================
 # DataPartitioner
 # ===========================================================================
+
 
 class DataPartitioner:
     DEFAULT_EVAL_SIZE = 50
@@ -89,8 +92,9 @@ class DataPartitioner:
         tmp_path = training_data_path + ".tmp"
         written = 0
         try:
-            with open(training_data_path, "r", encoding="utf-8") as src, \
-                 open(tmp_path, "w", encoding="utf-8") as dst:
+            with open(training_data_path, "r", encoding="utf-8") as src, open(
+                tmp_path, "w", encoding="utf-8"
+            ) as dst:
                 for line in src:
                     if line.strip():
                         if written < trim_at:
@@ -110,9 +114,11 @@ class DataPartitioner:
         )
         return eval_path
 
+
 # ===========================================================================
 # Thin DataGenAgent shim
 # ===========================================================================
+
 
 class DataGenAgent:
     async def run_datagen_pipeline(
@@ -123,9 +129,11 @@ class DataGenAgent:
     ) -> dict:
         return await _datagen_pipeline(task, hint, target_count=target_count)
 
+
 # ===========================================================================
 # Request / response schemas
 # ===========================================================================
+
 
 class LoopStartRequest(BaseModel):
     task_description: str = Field(..., min_length=10, max_length=500)
@@ -134,9 +142,11 @@ class LoopStartRequest(BaseModel):
     max_iterations: int = Field(default=5, ge=1, le=20)
     task_type: str = Field(default="general", max_length=50)
 
+
 class LoopStartResponse(BaseModel):
     loop_id: str
     message: str
+
 
 # ===========================================================================
 # Module level loop state
@@ -149,6 +159,7 @@ _loop_tasks: Dict[str, asyncio.Task] = {}
 # Orchestrator
 # ===========================================================================
 
+
 class Orchestrator:
     def __init__(
         self,
@@ -159,7 +170,9 @@ class Orchestrator:
         eval_agent=None,
     ):
         self.gemini_api_key = gemini_api_key or settings.GEMINI_API_KEY
-        self.skills_library = skills_library or SkillsLibrary(db_path=settings.SKILLS_DB_PATH)
+        self.skills_library = skills_library or SkillsLibrary(
+            db_path=settings.SKILLS_DB_PATH
+        )
         self.model_manager = ModelManager()
         self.datagen_agent = datagen_agent or DataGenAgent()
         self.training_agent_class = training_agent_class or TrainingAgent
@@ -196,27 +209,40 @@ class Orchestrator:
             while iteration < max_iterations and current_win_rate < target_score:
                 iteration += 1
 
-                await self._emit(queue, loop_id, {
-                    "type": "iteration_start",
-                    "iteration": iteration,
-                    "max_iterations": max_iterations,
-                    "win_rate": current_win_rate,
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "iteration_start",
+                        "iteration": iteration,
+                        "max_iterations": max_iterations,
+                        "win_rate": current_win_rate,
+                    },
+                )
 
                 strategies = await asyncio.to_thread(
                     self.skills_library.get_top_strategies, task_description
                 )
                 strategy_hint = strategies[0] if strategies else "General improvement"
-                await self._emit(queue, loop_id, {
-                    "type": "agent_status",
-                    "agent": "skills",
-                    "message": f"Strategy: {strategy_hint}",
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "agent_status",
+                        "agent": "skills",
+                        "message": f"Strategy: {strategy_hint}",
+                    },
+                )
 
-                await self._emit(queue, loop_id, {
-                    "type": "agent_status", "agent": "datagen",
-                    "message": "Generating training data…",
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "agent_status",
+                        "agent": "datagen",
+                        "message": "Generating training data…",
+                    },
+                )
                 gen_metadata = await self.datagen_agent.run_datagen_pipeline(
                     task_description, strategy_hint
                 )
@@ -227,40 +253,62 @@ class Orchestrator:
                     "filename",
                     os.path.join("data", "generated", f"{run_id}.jsonl"),
                 )
-                
+
                 await self._validate_gen_count(loop_id, gen_metadata, queue)
                 gen_count = gen_metadata.get("count", 0)
 
-                await self._emit(queue, loop_id, {
-                    "type": "agent_status", "agent": "datagen",
-                    "message": f"Generated {gen_count} pairs.",
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "agent_status",
+                        "agent": "datagen",
+                        "message": f"Generated {gen_count} pairs.",
+                    },
+                )
 
-                eval_dataset_path = DataPartitioner.split(training_data_path, run_id=run_id)
-                
-                await self._emit(queue, loop_id, {
-                    "type": "agent_status", "agent": "training",
-                    "message": f"Fine-tuning {base_model}…",
-                })
+                eval_dataset_path = DataPartitioner.split(
+                    training_data_path, run_id=run_id
+                )
+
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "agent_status",
+                        "agent": "training",
+                        "message": f"Fine-tuning {base_model}…",
+                    },
+                )
                 trainer = self.training_agent_class(
                     base_model_name=base_model,
                     training_data_path=training_data_path,
                     run_id=run_id,
                 )
                 train_metadata = await trainer.train()
-                await self._emit(queue, loop_id, {
-                    "type": "agent_status", "agent": "training",
-                    "message": (
-                        f"Training complete. "
-                        f"Loss: {train_metadata['final_loss']:.4f}  "
-                        f"Time: {train_metadata['training_time_seconds']:.0f}s"
-                    ),
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "agent_status",
+                        "agent": "training",
+                        "message": (
+                            f"Training complete. "
+                            f"Loss: {train_metadata['final_loss']:.4f}  "
+                            f"Time: {train_metadata['training_time_seconds']:.0f}s"
+                        ),
+                    },
+                )
 
-                await self._emit(queue, loop_id, {
-                    "type": "agent_status", "agent": "eval",
-                    "message": "Evaluating adapter vs base model…",
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "agent_status",
+                        "agent": "eval",
+                        "message": "Evaluating adapter vs base model…",
+                    },
+                )
                 eval_metadata = await self.eval_agent.run_evaluation_async(
                     base_model_name=base_model,
                     adapter_path=train_metadata["adapter_path"],
@@ -270,25 +318,43 @@ class Orchestrator:
                     queue=queue,
                 )
                 current_win_rate = eval_metadata["win_rate"]
-                await self._emit(queue, loop_id, {
-                    "type": "score_update",
-                    "iteration": iteration,
-                    "score": current_win_rate,
-                    "wins_base": eval_metadata["wins_base"],
-                    "wins_finetuned": eval_metadata["wins_finetuned"],
-                    "ties": eval_metadata["ties"],
-                })
+                await self._emit(
+                    queue,
+                    loop_id,
+                    {
+                        "type": "score_update",
+                        "iteration": iteration,
+                        "score": current_win_rate,
+                        "wins_base": eval_metadata["wins_base"],
+                        "wins_finetuned": eval_metadata["wins_finetuned"],
+                        "ties": eval_metadata["ties"],
+                    },
+                )
 
-                await self._execute_skills_update(task_description, strategy_hint, task_type, iteration, current_win_rate, queue, loop_id)
+                await self._execute_skills_update(
+                    task_description,
+                    strategy_hint,
+                    task_type,
+                    iteration,
+                    current_win_rate,
+                    queue,
+                    loop_id,
+                )
 
-            await self._execute_loop_completion(current_win_rate, target_score, train_metadata, queue, loop_id)
+            await self._execute_loop_completion(
+                current_win_rate, target_score, train_metadata, queue, loop_id
+            )
 
         except Exception as exc:
             logger.error(f"[{loop_id}] Loop failed: {exc}", exc_info=True)
-            await self._emit(queue, loop_id, {
-                "type": "loop_error",
-                "message": f"Critical error: {exc}",
-            })
+            await self._emit(
+                queue,
+                loop_id,
+                {
+                    "type": "loop_error",
+                    "message": f"Critical error: {exc}",
+                },
+            )
             raise
 
         finally:
@@ -296,11 +362,22 @@ class Orchestrator:
                 self.model_manager.release()
                 logger.info(f"[{loop_id}] ModelManager released.")
             except Exception as exc:
-                logger.warning(f"[{loop_id}] ModelManager release failed (non-critical): {exc}")
+                logger.warning(
+                    f"[{loop_id}] ModelManager release failed (non-critical): {exc}"
+                )
 
         return current_win_rate
 
-    async def _execute_skills_update(self, task_description, strategy_hint, task_type, iteration, current_win_rate, queue, loop_id):
+    async def _execute_skills_update(
+        self,
+        task_description,
+        strategy_hint,
+        task_type,
+        iteration,
+        current_win_rate,
+        queue,
+        loop_id,
+    ):
         await asyncio.to_thread(
             self.skills_library.update_strategy_score,
             task_description,
@@ -309,42 +386,60 @@ class Orchestrator:
             iteration,
             current_win_rate,
         )
-        await self._emit(queue, loop_id, {
-            "type": "agent_status", "agent": "skills",
-            "message": f"Skills library updated. Win rate: {current_win_rate:.2%}",
-        })
+        await self._emit(
+            queue,
+            loop_id,
+            {
+                "type": "agent_status",
+                "agent": "skills",
+                "message": f"Skills library updated. Win rate: {current_win_rate:.2%}",
+            },
+        )
 
-    async def _execute_loop_completion(self, current_win_rate, target_score, train_metadata, queue, loop_id):
+    async def _execute_loop_completion(
+        self, current_win_rate, target_score, train_metadata, queue, loop_id
+    ):
         reason = (
             "Target score reached!"
             if current_win_rate >= target_score
             else "Max iterations reached."
         )
-        await self._emit(queue, loop_id, {
-            "type": "loop_complete",
-            "final_score": current_win_rate,
-            "message": reason,
-            "adapter_path": train_metadata.get("adapter_path", ""),
-        })
-        logger.info(f"[{loop_id}] Loop finished: {reason} final_win_rate={current_win_rate:.4f}")
+        await self._emit(
+            queue,
+            loop_id,
+            {
+                "type": "loop_complete",
+                "final_score": current_win_rate,
+                "message": reason,
+                "adapter_path": train_metadata.get("adapter_path", ""),
+            },
+        )
+        logger.info(
+            f"[{loop_id}] Loop finished: {reason} final_win_rate={current_win_rate:.4f}"
+        )
 
     def _get_display_task(self, task_description: str) -> str:
         if len(task_description) > 100:
             return task_description[:100] + "..."
         return task_description
 
-    async def _validate_gen_count(self, loop_id: str, gen_metadata: dict, queue) -> None:
+    async def _validate_gen_count(
+        self, loop_id: str, gen_metadata: dict, queue
+    ) -> None:
         gen_count = gen_metadata.get("count", 0)
         if gen_count < 10:
             msg = f"DataGen failed: only {gen_count} pairs generated (min 10 required)."
             logger.error(f"[{loop_id}] {msg}")
             raise ValueError(msg)
 
-    async def _emit(self, queue: Optional[asyncio.Queue], loop_id: str, data: dict) -> None:
+    async def _emit(
+        self, queue: Optional[asyncio.Queue], loop_id: str, data: dict
+    ) -> None:
         message = {"loop_id": loop_id, **data}
         logger.debug(f"[{loop_id}] emit type={data.get('type', '?')}")
         if queue is not None:
             await queue.put(message)
+
 
 # ===========================================================================
 # Singleton orchestrator used by the router
@@ -356,6 +451,7 @@ router = APIRouter()
 # ===========================================================================
 # POST /api/loop/start
 # ===========================================================================
+
 
 @router.post("/api/loop/start", response_model=LoopStartResponse)
 async def start_loop(request: LoopStartRequest):
@@ -381,9 +477,11 @@ async def start_loop(request: LoopStartRequest):
     logger.info(f"Loop {loop_id} queued for task: {request.task_description!r}")
     return LoopStartResponse(loop_id=loop_id, message="Loop started.")
 
+
 # ===========================================================================
 # WebSocket /ws/loop/{loop_id}
 # ===========================================================================
+
 
 @router.websocket("/ws/loop/{loop_id}")
 async def websocket_endpoint(websocket: WebSocket, loop_id: str):
@@ -392,7 +490,7 @@ async def websocket_endpoint(websocket: WebSocket, loop_id: str):
         "ALLOWED_ORIGINS",
         "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000",
     ).split(",")
-    
+
     if origin and origin not in allowed_origins:
         await websocket.close(code=1008, reason="Policy Violation")
         return
@@ -409,6 +507,7 @@ async def websocket_endpoint(websocket: WebSocket, loop_id: str):
 
     try:
         import jwt as pyjwt
+
         payload = pyjwt.decode(token, settings.get_jwt_secret, algorithms=["HS256"])
         if payload.get("scope") != "ws:loop":
             raise ValueError("Invalid scope")
@@ -429,7 +528,9 @@ async def websocket_endpoint(websocket: WebSocket, loop_id: str):
             try:
                 msg = await asyncio.wait_for(queue.get(), timeout=60.0)
             except asyncio.TimeoutError:
-                await websocket.send_text(json.dumps({"type": "ping", "loop_id": loop_id}))
+                await websocket.send_text(
+                    json.dumps({"type": "ping", "loop_id": loop_id})
+                )
                 continue
 
             await websocket.send_text(json.dumps(msg))
