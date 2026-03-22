@@ -2,47 +2,43 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-
-    steps:
-    - uses: actions/checkout@v4
     
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        # Install in editable mode with dev dependencies
-        pip install -e ".[dev]"
-        
-    - name: Run Quality Checks
-      run: |
-        black --check .
-        isort --check-only .
-        # Catch critical syntax errors and undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        
-    - name: Run Core Architecture Smoke Tests
-      env:
-        # Inject dummy vars so Pydantic config validation passes purely
-        GEMINI_API_KEY: "dummy_key_for_ci_pipeline"
-        ENV: "development"
-      run: |
-        # Run the custom verification suite we built
-        python verify_implementation.py
-        
-  # Optional: Deploy job could be added here later (e.g., Docker build, HF Hub sync)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Quality Checks
+        run: |
+          black --check .
+          isort --check-only .
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Pre-flight Directory Check
+        run: |
+          # Create all folders ignored by git but needed for runtime
+          mkdir -p logs data/generated data/eval models eval_results
+
+      - name: Run Verification Suite
+        env:
+          # We provide dummy keys so the Config validator doesn't crash
+          GEMINI_API_KEY: "static_test_key_non_functional"
+          JWT_SECRET: "ci_pipeline_secret_key_12345"
+        run: |
+          python verify_implementation.py

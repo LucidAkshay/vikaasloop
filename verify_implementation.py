@@ -3,6 +3,8 @@
 #
 # Smoke tests for core components
 
+import os
+os.environ["BITSANDBYTES_NO_CUDA"] = "1"
 import asyncio
 import gc
 import json
@@ -145,25 +147,24 @@ async def verify_data_components():
 # ===========================================================================
 # Main Execution
 # ===========================================================================
-
-
 async def main():
     print("=" * 60)
     print("  VikaasLoop Component Verification Suite")
     print("=" * 60)
-
     try:
         await verify_logic_units()
         await verify_security_and_config()
         await verify_data_components()
-
         print("\n" + "=" * 60)
-        print("  ALL VERIFICATIONS PASSED")
-        print("  VikaasLoop is ready for deployment.")
+        print(" ALL VERIFICATIONS PASSED")
+        print(" VikaasLoop is ready for deployment.")
         print("=" * 60)
     except Exception as e:
-        print(f"\n!! VERIFICATION FAILED: {e}")
-        exit(1)
+        print(f"!! VERIFICATION FAILED: {str(e)}")
+        import traceback
+        traceback.print_exc()   # This will print the exact line number and error
+        import sys
+        sys.exit(1)
 
 
 if __name__ == "__main__":
