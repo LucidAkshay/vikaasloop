@@ -1,0 +1,47 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+env/
+
+# Testing and Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Models and runtime data
+models/
+data/generated/
+data/eval/
+
+# Databases and WAL sidecars
+*.db
+*.sqlite3
+*-wal
+*-shm
+
+# Logs
+*.log
+logs/
+
+# IDE and Notebooks
+.vscode/
+.idea/
+*.swp
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db

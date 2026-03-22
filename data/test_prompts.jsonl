@@ -1,0 +1,50 @@
+{"prompt": "Write a Python function to find the factorial of a number."}
+{"prompt": "How do you handle exceptions in Python? Provide an example."}
+{"prompt": "Explain the difference between a list and a tuple in Python."}
+{"prompt": "Write a Python script to scrape a website using BeautifulSoup."}
+{"prompt": "What are decorators in Python and how do they work?"}
+{"prompt": "How do you implement a singleton pattern in Python?"}
+{"prompt": "Write a function to check if a string is a palindrome."}
+{"prompt": "Explain the use of 'yield' in Python. Provide a generator example."}
+{"prompt": "How do you work with JSON data in Python?"}
+{"prompt": "Write a Python program to sort a dictionary by value."}
+{"prompt": "What is the purpose of '__init__' in Python classes?"}
+{"prompt": "How do you use list comprehensions? Give three examples."}
+{"prompt": "Explain the difference between 'is' and '==' in Python."}
+{"prompt": "How do you perform multi-threading in Python?"}
+{"prompt": "Write a function to merge two sorted lists into one sorted list."}
+{"prompt": "What is the Global Interpreter Lock (GIL) in Python?"}
+{"prompt": "How do you create a virtual environment in Python?"}
+{"prompt": "Explain the concept of 'args' and 'kwargs'."}
+{"prompt": "How do you use the 'map' and 'filter' functions?"}
+{"prompt": "Write a Python function to reverse a linked list."}
+{"prompt": "How do you connect to a SQLite database in Python?"}
+{"prompt": "Explain the difference between shallow and deep copy."}
+{"prompt": "How do you use the 'with' statement for file handling?"}
+{"prompt": "What are lambda functions? Provide a use case."}
+{"prompt": "How do you find the most frequent element in a list?"}
+{"prompt": "Write a script to convert Celsius to Fahrenheit."}
+{"prompt": "Explain namespaces and scope in Python."}
+{"prompt": "How do you use the 'requests' library to make API calls?"}
+{"prompt": "Write a function to check if a number is prime."}
+{"prompt": "What is the difference between an instance method, a class method, and a static method?"}
+{"prompt": "How do you use the 're' module for regular expressions?"}
+{"prompt": "Write a Python function to calculate the Fibonacci sequence up to n."}
+{"prompt": "Explain how garbage collection works in Python."}
+{"prompt": "How do you use the 'collections.Counter' class?"}
+{"prompt": "Write a script to find the largest file in a directory."}
+{"prompt": "What is slicing in Python? Provide examples with strings and lists."}
+{"prompt": "How do you use 'try...finally' for cleanup operations?"}
+{"prompt": "Explain method resolution order (MRO) in Python."}
+{"prompt": "How do you implement a binary search algorithm in Python?"}
+{"prompt": "What are dunder (magic) methods? List five common ones."}
+{"prompt": "How do you use the 'zip' function?"}
+{"prompt": "Write a Python function to flatten a nested list."}
+{"prompt": "Explain the purpose of 'abc' (Abstract Base Classes) module."}
+{"prompt": "How do you measure execution time of a code block?"}
+{"prompt": "Write a script to get the current date and time in a specific format."}
+{"prompt": "Explain monkey patching in Python."}
+{"prompt": "How do you use the 'enum' module?"}
+{"prompt": "Write a function to validate an email address using regex."}
+{"prompt": "What is the difference between 'pickle' and 'json' modules?"}
+{"prompt": "How do you use 'pathlib' for file path manipulations?"}

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VikaasLoop — Evaluation Engine</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        appbg: '#0B0F19',
+                        cardbg: '#111827',
+                        borderline: 'rgba(255, 255, 255, 0.08)',
+                        brand: { 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5' }
+                    },
+                    boxShadow: {
+                        'glow-emerald': '0 -1px 12px -2px rgba(16, 185, 129, 0.15)',
+                        'glow-rose': '0 -1px 12px -2px rgba(244, 63, 94, 0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        body {
+            background: #0B0F19;
+            color: #f1f5f9;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        .spin {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="min-h-screen selection:bg-brand-500/30">
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // ─── Icons ────────────────────────────────────────────────────────────────
+        const Icon = ({ d, size = 16, cls = '' }) => (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={cls}>
+                <path d={d} />
+            </svg>
+        );
+
+        const ICONS = {
+            refresh: "M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15",
+            play: "M5 3l14 9-14 9V3z",
+            eye: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 12m-3 0a3 3 0 106 0 3 3 0 00-6 0",
+            back: "M19 12H5M12 19l-7-7 7-7",
+            loader: "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4",
+            star: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+        };
+
+        // ─── Helpers ──────────────────────────────────────────────────────────────
+        const API = async (url, opts = {}) => {
+            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ detail: res.statusText }));
+                throw new Error(err.detail || res.statusText);
+            }
+            return res.json();
+        };
+
+        const fmt_pct = v => `${((v || 0) * 100).toFixed(1)}%`;
+        const fmt_date = s => s ? new Date(s).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+
+        // ─── UI Components ────────────────────────────────────────────────────────
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-cardbg border border-borderline rounded-xl shadow-lg ${className}`}>
+                {children}
+            </div>
+        );
+
+        const StatCard = ({ label, value, sub, color = 'text-slate-100' }) => (
+            <Card className="p-5 flex flex-col justify-center">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">{label}</p>
+                <p className={`text-3xl font-bold tracking-tight ${color}`}>{value}</p>
+                {sub && <p className="text-xs text-slate-500 mt-1.5 font-medium">{sub}</p>}
+            </Card>
+        );
+
+        const VerdictBadge = ({ v }) => {
+            const parsed = (v || '').toUpperCase();
+            if (parsed === 'B' || parsed === 'FINETUNED') {
+                return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">FINE-TUNED WIN</span>;
+            }
+            if (parsed === 'A' || parsed === 'BASE') {
+                return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">BASE WIN</span>;
+            }
+            return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">TIE</span>;
+        };
+
+        // ─── ExperimentCard ───────────────────────────────────────────────────────
+        const ExperimentCard = ({ exp, selected, onClick }) => (
+            <div onClick={onClick}
+                className={`bg-cardbg border rounded-xl p-5 cursor-pointer transition-all hover:bg-slate-800/50 
+        ${selected ? 'border-brand-500 shadow-[0_0_15px_rgba(99,102,241,0.15)] ring-1 ring-brand-500' : 'border-borderline'}`}>
+                <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-mono text-brand-400 font-medium">#{exp.run_id}</span>
+                    <span className="text-[11px] text-slate-500 font-medium">{fmt_date(exp.created_at)}</span>
+                </div>
+                <div className="flex items-end justify-between">
+                    <div>
+                        <div className="text-2xl font-bold text-white tracking-tight">{fmt_pct(exp.win_rate)}</div>
+                        <div className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">Win Rate</div>
+                    </div>
+                    {exp.score_delta != null && (
+                        <div className={`text-sm font-bold bg-slate-900 px-2 py-1 rounded-md border border-slate-800 ${exp.score_delta >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {exp.score_delta >= 0 ? '+' : ''}{fmt_pct(exp.score_delta)}
+                        </div>
+                    )}
+                </div>
+                <div className="mt-4 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, (exp.win_rate || 0) * 100)}%` }} />
+                </div>
+            </div>
+        );
+
+        // ─── ComparisonCard ───────────────────────────────────────────────────────
+        const ComparisonCard = ({ comp, index }) => {
+            const verdict = (comp.judge_verdict || comp.verdict || '').toUpperCase();
+            const isFineTunedWin = verdict === 'B' || verdict === 'FINETUNED';
+            const isBaseWin = verdict === 'A' || verdict === 'BASE';
+
+            return (
+                <Card className="overflow-hidden flex flex-col">
+                    {/* Prompt Header */}
+                    <div className="px-5 py-4 bg-[#151b28] border-b border-borderline">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Evaluation Prompt {index + 1}</span>
+                            <VerdictBadge v={verdict} />
+                        </div>
+                        <p className="text-sm text-slate-200 font-mono leading-relaxed whitespace-pre-wrap">{comp.prompt}</p>
+                    </div>
+
+                    {/* Two Columns */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 flex-1">
+                        {/* Base Model */}
+                        <div className={`p-6 border-b md:border-b-0 md:border-r border-borderline flex flex-col 
+              ${isBaseWin ? 'bg-rose-500/5 shadow-glow-rose z-10 border-t-2 border-t-rose-500/50' : 'bg-transparent border-t-2 border-t-transparent'}`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                {isBaseWin && <Icon d={ICONS.star} size={14} cls="text-rose-400 fill-rose-400/20" />}
+                                <p className={`text-[11px] font-bold uppercase tracking-wider ${isBaseWin ? 'text-rose-400' : 'text-slate-500'}`}>Base Model</p>
+                            </div>
+                            <p className="text-sm text-slate-300 font-mono whitespace-pre-wrap leading-relaxed">
+                                {comp.base_response || '—'}
+                            </p>
+                        </div>
+
+                        {/* Fine-Tuned Model */}
+                        <div className={`p-6 flex flex-col 
+              ${isFineTunedWin ? 'bg-emerald-500/5 shadow-glow-emerald z-10 border-t-2 border-t-emerald-500/50' : 'bg-transparent border-t-2 border-t-transparent'}`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                {isFineTunedWin && <Icon d={ICONS.star} size={14} cls="text-emerald-400 fill-emerald-400/20" />}
+                                <p className={`text-[11px] font-bold uppercase tracking-wider ${isFineTunedWin ? 'text-emerald-400' : 'text-slate-500'}`}>Fine-Tuned Adapter</p>
+                            </div>
+                            <p className="text-sm text-slate-100 font-mono whitespace-pre-wrap leading-relaxed">
+                                {comp.finetuned_response || comp.adapter_response || '—'}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+            );
+        };
+
+        // ─── WinRateChart ─────────────────────────────────────────────────────────
+        const WinRateChart = ({ experiments }) => {
+            const canvasRef = useRef(null);
+            const chartRef = useRef(null);
+
+            useEffect(() => {
+                if (!canvasRef.current) return;
+                const ctx = canvasRef.current.getContext('2d');
+
+                const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                gradient.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+                gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+                chartRef.current = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [...experiments].reverse().map(e => e.run_id.substring(0, 8) + '...'),
+                        datasets: [{
+                            label: 'Win Rate',
+                            data: [...experiments].reverse().map(e => e.win_rate || 0),
+                            borderColor: '#6366f1',
+                            backgroundColor: gradient,
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: true,
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#6366f1',
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        scales: {
+                            x: { grid: { display: false }, border: { display: false }, ticks: { color: '#64748b', font: { family: 'Inter', size: 10 } } },
+                            y: { min: 0, max: 1, border: { display: false }, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b', font: { family: 'Inter', size: 10 }, callback: v => `${(v * 100).toFixed(0)}%` } }
+                        },
+                        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', titleFont: { family: 'Inter' }, bodyFont: { family: 'Inter' }, padding: 10, cornerRadius: 8, displayColors: false } }
+                    }
+                });
+                return () => chartRef.current?.destroy();
+            }, [experiments]);
+
+            return (
+                <Card className="p-6 h-64 flex flex-col">
+                    <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-4">Efficacy Trajectory</h3>
+                    <div className="flex-1 relative">
+                        <canvas ref={canvasRef}></canvas>
+                    </div>
+                </Card>
+            );
+        };
+
+        // ─── DetailView ───────────────────────────────────────────────────────────
+        const DetailView = ({ exp, onBack }) => {
+            const total = exp.total_comparisons || exp.comparisons?.length || 0;
+            const bWins = exp.b_wins || 0;
+            const aWins = exp.a_wins || 0;
+            const ties = exp.ties || 0;
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <button onClick={onBack}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                                <Icon d={ICONS.back} size={16} />
+                            </button>
+                            <div>
+                                <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-3">
+                                    Evaluation Report
+                                    <span className="px-2.5 py-1 text-[11px] font-mono bg-brand-500/10 text-brand-400 border border-brand-500/20 rounded-md">
+                                        {exp.run_id}
+                                    </span>
+                                </h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <StatCard label="Win Rate" value={fmt_pct(exp.win_rate)} color="text-brand-400" />
+                        <StatCard label="Finetuned Wins" value={bWins} color="text-emerald-400" sub={`out of ${total} tests`} />
+                        <StatCard label="Base Wins" value={aWins} color="text-rose-400" />
+                        <StatCard label="Ties" value={ties} color="text-slate-300" />
+                    </div>
+
+                    {exp.task_description &&
+                        <Card className="px-5 py-4 bg-[#151b28]">
+                            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Optimization Target</div>
+                            <div className="text-sm text-slate-300 font-mono">{exp.task_description}</div>
+                        </Card>
+                    }
+
+                    <div>
+                        <h3 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-4 mt-8">
+                            Judge Comparisons ({exp.comparisons?.length || 0})
+                        </h3>
+                        {(exp.comparisons || []).length === 0 ? (
+                            <Card className="p-8 text-center text-slate-500 text-sm">
+                                No comparison details stored for this run.
+                            </Card>
+                        ) : (
+                            <div className="space-y-6">
+                                {(exp.comparisons || []).map((comp, i) => (
+                                    <ComparisonCard key={i} comp={comp} index={i} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // ─── App ──────────────────────────────────────────────────────────────────
+        const App = () => {
+            const [experiments, setExperiments] = useState([]);
+            const [selected, setSelected] = useState(null);
+            const [detail, setDetail] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [loadingDetail, setLoadingDetail] = useState(false);
+            const [running, setRunning] = useState(false);
+            const [err, setErr] = useState('');
+
+            const loadExperiments = useCallback(async () => {
+                setLoading(true); setErr('');
+                try {
+                    const data = await API('/api/eval/results');
+                    setExperiments(data);
+                } catch (e) { setErr(e.message); }
+                finally { setLoading(false); }
+            }, []);
+
+            useEffect(() => { loadExperiments(); }, [loadExperiments]);
+
+            const runEval = async () => {
+                setRunning(true); setErr('');
+                try {
+                    await API('/api/eval/run', { method: 'POST', body: '{}' });
+                    for (let i = 0; i < 12; i++) {
+                        await new Promise(r => setTimeout(r, 5000));
+                        await loadExperiments();
+                    }
+                } catch (e) { setErr(e.message); }
+                finally { setRunning(false); }
+            };
+
+            const selectExperiment = async (exp) => {
+                setSelected(exp.run_id);
+                setLoadingDetail(true);
+                try {
+                    const data = await API(`/api/eval/results/${exp.run_id}`);
+                    setDetail(data);
+                } catch (e) { setErr(e.message); }
+                finally { setLoadingDetail(false); }
+            };
+
+            const avgWinRate = experiments.length
+                ? experiments.reduce((s, e) => s + (e.win_rate || 0), 0) / experiments.length
+                : null;
+
+            return (
+                <div className="max-w-7xl mx-auto px-6 py-10">
+
+                    {/* Header */}
+                    <header className="flex flex-wrap justify-between items-center gap-6 mb-10 pb-6 border-b border-borderline">
+                        <div>
+                            <h1 className="text-3xl font-bold tracking-tight text-white">Evaluation Engine</h1>
+                            <p className="text-slate-400 mt-2 text-sm font-medium">
+                                Cryptographic-grade visual diffing and telemetry for adapter performance.
+                            </p>
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={loadExperiments} disabled={loading}
+                                className="bg-cardbg border border-borderline hover:bg-slate-800 text-slate-300 font-semibold py-2 px-4 rounded-lg text-sm flex items-center gap-2 transition-colors disabled:opacity-50">
+                                <Icon d={ICONS.refresh} size={14} cls={loading ? 'spin' : ''} /> Refresh
+                            </button>
+                            <button onClick={runEval} disabled={running}
+                                className="bg-white hover:bg-slate-200 text-slate-900 font-bold py-2 px-5 rounded-lg text-sm flex items-center gap-2 shadow-lg transition-all disabled:opacity-50">
+                                {running ? <><Icon d={ICONS.loader} size={14} cls="spin" /> Executing...</> : <><Icon d={ICONS.play} size={14} /> Run Manual Eval</>}
+                            </button>
+                        </div>
+                    </header>
+
+                    {err && (
+                        <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl px-5 py-4 text-sm mb-8 font-medium">
+                            {err}
+                        </div>
+                    )}
+
+                    {/* Master View */}
+                    {detail && selected ? (
+                        <DetailView exp={detail} onBack={() => { setDetail(null); setSelected(null); }} />
+                    ) : (
+                        <div className="space-y-8">
+
+                            {/* Summary Stats */}
+                            {experiments.length > 0 && (
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                                    <StatCard label="Total Evaluations" value={experiments.length} />
+                                    <StatCard label="Mean Efficacy" value={avgWinRate != null ? fmt_pct(avgWinRate) : '—'} color="text-brand-400" />
+                                    <StatCard label="Peak Win Rate" value={fmt_pct(Math.max(...experiments.map(e => e.win_rate || 0)))} color="text-emerald-400" />
+                                    <StatCard label="Latest Delta"
+                                        value={experiments[0]?.score_delta != null ? `${experiments[0].score_delta >= 0 ? '+' : ''}${fmt_pct(experiments[0].score_delta)}` : '—'}
+                                        color={experiments[0]?.score_delta >= 0 ? 'text-emerald-400' : 'text-rose-400'} />
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                {/* List Column */}
+                                <div className="space-y-4">
+                                    <h2 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">History Ledger</h2>
+
+                                    {loading && experiments.length === 0 && <p className="text-slate-500 text-sm">Querying database...</p>}
+
+                                    {!loading && experiments.length === 0 &&
+                                        <Card className="p-6 text-center text-slate-500 text-sm">
+                                            No evaluations recorded. Initialize an engine loop.
+                                        </Card>
+                                    }
+
+                                    <div className="space-y-3">
+                                        {experiments.map(exp => (
+                                            <ExperimentCard key={exp.run_id} exp={exp} selected={selected === exp.run_id} onClick={() => selectExperiment(exp)} />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Detail Preview Column */}
+                                <div className="lg:col-span-2">
+                                    {loadingDetail ? (
+                                        <Card className="flex items-center justify-center h-64">
+                                            <Icon d={ICONS.loader} size={24} cls="spin text-brand-500" />
+                                        </Card>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <WinRateChart experiments={experiments} />
+                                            <Card className="flex flex-col items-center justify-center h-64 text-slate-500 bg-[#0e131f] border-dashed">
+                                                <Icon d={ICONS.eye} size={32} cls="mb-3 opacity-50" />
+                                                <p className="text-sm font-medium">Select a run from the ledger to load visual diffing tools.</p>
+                                            </Card>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+
+</html>

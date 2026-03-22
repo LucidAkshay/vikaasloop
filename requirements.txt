@@ -1,0 +1,47 @@
+# VikaasLoop — Python Dependencies
+# Install with: pip install -r requirements.txt
+# Requires Python 3.11+ on Windows/Linux/macOS
+# GPU strongly recommended (NVIDIA CUDA 11.8+)
+#
+# Free APIs used (no billing required):
+#   Gemini Flash/Pro  → https://aistudio.google.com/apikey
+#   HuggingFace Hub   → https://huggingface.co/settings/tokens
+
+# ── Web framework ──────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+aiofiles>=23.2.1
+
+# ── Gemini API (correct SDK — NOT google-generativeai) ─────────────────────
+google-genai>=0.5.0
+
+# ── LLM fine-tuning stack ─────────────────────────────────────────────────
+torch>=2.2.0                  # GPU training — install CUDA build from pytorch.org
+transformers>=4.40.0          # Model loading, tokenization
+peft>=0.10.0                  # LoRA / QLoRA adapter training
+trl>=0.8.6                    # SFTTrainer — supervised fine-tuning
+bitsandbytes>=0.43.0          # 4-bit quantization (QLoRA)
+accelerate>=0.29.0            # Multi-GPU / device mapping
+datasets>=2.19.0              # HuggingFace dataset loading from JSONL
+
+# ── Skills Library — semantic similarity ──────────────────────────────────
+sentence-transformers>=2.5.1  # Task embedding for strategy retrieval
+numpy>=1.26.0                 # Cosine similarity computation
+
+# ── Retry logic (Gemini rate-limit backoff) ────────────────────────────────
+tenacity>=8.2.0
+
+# ── Authentication ────────────────────────────────────────────────────────
+PyJWT>=2.8.0                  # Short-lived JWT for WebSocket auth
+
+# ── Model publishing ──────────────────────────────────────────────────────
+huggingface-hub>=0.22.0       # Push fine-tuned adapters to HF Hub
+
+# ── Configuration & environment ───────────────────────────────────────────
+python-dotenv>=1.0.0          # Load .env file
+pydantic-settings>=2.2.1      # Settings class for config.py
+
+# ── Optional: code quality (dev only) ─────────────────────────────────────
+# pytest>=8.0.0
+# black>=24.2.0
+# isort>=5.13.2

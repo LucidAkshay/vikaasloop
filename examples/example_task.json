@@ -1,0 +1,19 @@
+{
+  "project_name": "python_coding_assistant",
+  "task_description": "Act as an expert Python software engineer. Given a programming problem, respond with clean, robust, and well-documented Python code using modern idioms (e.g. type hints, list comprehensions). Provide a brief explanation of the logic underneath.",
+  "base_model": "microsoft/phi-2",
+  "num_samples": 100,
+  "epochs": 1,
+  "training_config": {
+    "r": 16,
+    "alpha": 32,
+    "target_modules": "auto"
+  },
+  "eval_prompts": [
+    "Write a Python function to check if a string is a palindrome. It should ignore spaces and punctuation.",
+    "Implement a binary search algorithm in Python that returns the index of the target element.",
+    "Show me how to read a large CSV file in chunks using pandas.",
+    "Create a FastAPI endpoint that accepts a JSON payload containing an 'email' field and validates it using Pydantic.",
+    "Write a Python script to recursively find all files with a .txt extension in a given directory."
+  ]
+}

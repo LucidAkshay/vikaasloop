@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VikaasLoop Engine</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            sidebar: '#0f172a', /* slate-900 */
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1', /* indigo */
+              600: '#4f46e5',
+              900: '#312e81'
+            }
+          },
+          boxShadow: {
+            'subtle': '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+            'float': '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+          }
+        }
+      }
+    }
+  </script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  
+  <style>
+    body { background: #f8fafc; color: #334155; -webkit-font-smoothing: antialiased; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pulse-dot { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(0.8); } }
+    
+    /* Terminal scrollbar */
+    .terminal-scroll::-webkit-scrollbar-thumb { background: #475569; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── Icons ────────────────────────────────────────────────────────────────
+const Icon = ({ d, size=16, cls='' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+    strokeLinejoin="round" className={cls}>
+    <path d={d}/>
+  </svg>
+);
+
+const ICONS = {
+  play:      "M5 3l14 9-14 9V3z",
+  activity:  "M22 12h-4l-3 9L9 3l-3 9H2",
+  book:      "M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 014 17V5a2 2 0 012-2h14v14",
+  pkg:       "M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z",
+  plus:      "M12 5v14M5 12h14",
+  loader:    "M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4",
+  upload:    "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  download:  "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3",
+  check:     "M20 6L9 17l-5-5",
+  zap:       "M13 2L3 14h9l-1 8 10-12h-9l1-8z",
+  terminal:  "M4 17l6-6-6-6M12 19h8",
+  copy:      "M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H14m0 0l3-3m-3 3l3 3",
+  cpu:       "M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v4m0 0H3m6 0h10M3 7v10a2 2 0 002 2h4m-6-6h4m0 0v6m0-6h10m0 0v6m0-6h4a2 2 0 002-2V7m-4 12h4",
+};
+
+// ─── UI Components ────────────────────────────────────────────────────────
+const Card = ({ children, className='' }) => (
+  <div className={`bg-white rounded-xl shadow-subtle ring-1 ring-slate-900/5 p-6 ${className}`}>
+    {children}
+  </div>
+);
+
+const BADGE = {
+  Idle:     'bg-slate-100 text-slate-600 ring-slate-500/10',
+  DataGen:  'bg-blue-50 text-blue-700 ring-blue-700/10',
+  Training: 'bg-indigo-50 text-indigo-700 ring-indigo-700/10',
+  Eval:     'bg-teal-50 text-teal-700 ring-teal-700/10',
+  Active:   'bg-amber-50 text-amber-700 ring-amber-600/20',
+  Complete: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  Error:    'bg-rose-50 text-rose-700 ring-rose-600/10',
+};
+
+const API = async (url, opts={}) => {
+  const res = await fetch(url, { headers: {'Content-Type':'application/json'}, ...opts });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+};
+
+// ─── Views ────────────────────────────────────────────────────────────────
+const NewLoop = ({ onStart }) => {
+  const [form, setForm] = useState({ task:'', model:'microsoft/phi-2', targetScore:0.75, maxIter:5 });
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const submit = async () => {
+    if (!form.task.trim() || form.task.length < 10) {
+      setErr('Task description must be at least 10 characters.'); return;
+    }
+    setErr(''); setLoading(true);
+    try { await onStart(form); }
+    catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+
+  const inputCls = "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all";
+
+  return (
+    <div className="max-w-2xl mx-auto mt-4">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Configure Engine</h2>
+        <p className="text-sm text-slate-500 mt-1">Define your autonomous improvement parameters.</p>
+      </div>
+      
+      <Card className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">Task Description</label>
+          <textarea rows="3" className={inputCls}
+            value={form.task} onChange={e=>setForm({...form,task:e.target.value})}
+            placeholder="e.g. Make the model better at explaining Python async/await with clear code examples" />
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Base Architecture</label>
+            <select className={inputCls}
+              value={form.model} onChange={e=>setForm({...form,model:e.target.value})}>
+              <option value="microsoft/phi-2">microsoft/phi-2 (2.7B)</option>
+              <option value="meta-llama/Llama-3.2-1B">meta-llama/Llama-3.2-1B</option>
+              <option value="google/gemma-2-2b">google/gemma-2-2b</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Max Iterations</label>
+            <input type="number" min="1" max="20" className={inputCls}
+              value={form.maxIter} onChange={e=>setForm({...form,maxIter:parseInt(e.target.value)||1})} />
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <div className="flex justify-between items-end mb-2">
+            <label className="block text-sm font-medium text-slate-700">Target Quality Threshold</label>
+            <span className="text-sm font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md border border-brand-100">
+              {(form.targetScore*100).toFixed(0)}% Win Rate
+            </span>
+          </div>
+          <input type="range" min="0.5" max="0.95" step="0.05"
+            className="w-full accent-brand-500 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+            value={form.targetScore} onChange={e=>setForm({...form,targetScore:parseFloat(e.target.value)})} />
+          <div className="flex justify-between text-xs font-medium text-slate-400 mt-2">
+            <span>50% (Baseline)</span><span>95% (Expert)</span>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-slate-100">
+          {err && <div className="mb-4 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2 flex items-center gap-2">
+            <Icon d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" size={14} />{err}
+          </div>}
+          <button onClick={submit} disabled={loading}
+            className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 disabled:text-slate-500 text-white font-medium py-2.5 px-4 rounded-lg shadow-sm transition-all flex justify-center items-center gap-2">
+            {loading ? <><Icon d={ICONS.loader} cls="spin text-slate-400" /> Initializing...</> : <><Icon d={ICONS.play} size={14} /> Initialize Autonomous Loop</>}
+          </button>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const LiveView = ({ isRunning, logs, iteration, maxIter, scoreHistory, agentStatus, loopId }) => {
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+  const logsEndRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyId = () => {
+    if (!loopId) return;
+    navigator.clipboard.writeText(loopId); setCopied(true);
+    setTimeout(()=>setCopied(false), 2000);
+  };
+
+  useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [logs]);
+
+  useEffect(() => {
+    const ctx = canvasRef.current.getContext('2d');
+    
+    // Enterprise Gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+    gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+    chartRef.current = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Win Rate',
+          data: [],
+          borderColor: '#4f46e5',
+          backgroundColor: gradient,
+          borderWidth: 2,
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: '#4f46e5',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: '#64748b', font: { family: 'Inter', size: 11 } } },
+          y: { min: 0, max: 1, border: { display: false }, grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { family: 'Inter', size: 11 }, callback: v => `${(v*100).toFixed(0)}%` } }
+        },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f172a', titleFont: { family: 'Inter' }, bodyFont: { family: 'Inter' }, padding: 10, cornerRadius: 8, displayColors: false } }
+      }
+    });
+    return () => chartRef.current?.destroy();
+  }, []);
+
+  if (!isRunning && logs.length === 0) {
+    return (
+      <div className="h-[70vh] flex flex-col items-center justify-center text-center">
+        <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 ring-1 ring-slate-200">
+          <Icon d={ICONS.activity} size={24} cls="text-slate-400" />
+        </div>
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">Engine is Idle</h2>
+        <p className="text-sm text-slate-500 max-w-sm mb-6">Initialize a new loop to monitor real-time generation, training, and evaluation telemetry.</p>
+        <button onClick={()=>window.location.hash='#new'} className="text-sm font-medium text-brand-600 hover:text-brand-700 bg-brand-50 px-4 py-2 rounded-lg transition-colors">Configure Engine →</button>
+      </div>
+    );
+  }
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.data.labels = scoreHistory.map((_,i)=>`Iter ${i+1}`);
+    chartRef.current.data.datasets[0].data = scoreHistory;
+    chartRef.current.update();
+  }, [scoreHistory]);
+
+  const latestScore = scoreHistory.length ? scoreHistory[scoreHistory.length-1] : null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Telemetry</h2>
+          {loopId && (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] font-mono text-slate-500 font-medium tracking-wide">RUN_ID: {loopId}</span>
+              <button onClick={copyId} className="text-slate-400 hover:text-brand-600 transition-colors">
+                <Icon d={copied ? ICONS.check : ICONS.copy} size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-lg shadow-subtle ring-1 ring-slate-900/5">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Iteration</span>
+            <span className="text-sm font-semibold text-slate-900">{iteration} <span className="text-slate-400 font-normal">/ {maxIter || '∞'}</span></span>
+          </div>
+          <div className="w-px h-8 bg-slate-200"></div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Current Score</span>
+            <span className="text-sm font-semibold text-brand-600">{latestScore !== null ? `${(latestScore*100).toFixed(1)}%` : '---'}</span>
+          </div>
+          <div className="w-px h-8 bg-slate-200"></div>
+          <div className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 ring-1 inset-ring ${BADGE[agentStatus] || BADGE.Idle}`}>
+            {isRunning && <Icon d={ICONS.loader} size={12} cls="spin" />}
+            {agentStatus}
+          </div>
+        </div>
+      </div>
+
+      {maxIter > 0 &&
+        <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-full bg-brand-500 transition-all duration-500" style={{width: `${Math.min(100, (iteration/maxIter)*100)}%`}} />
+        </div>
+      }
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 flex flex-col p-0 overflow-hidden" style={{height:420}}>
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Win Rate Trajectory</h3>
+          </div>
+          <div className="flex-1 p-5 relative">
+            <canvas ref={canvasRef}></canvas>
+          </div>
+        </Card>
+
+        <div className="bg-[#0c1017] rounded-xl flex flex-col shadow-float ring-1 ring-slate-900/10 overflow-hidden" style={{height:420}}>
+          <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2 bg-[#131821]">
+            <div className="flex gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-rose-500/80"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
+            </div>
+            <span className="ml-2 text-[11px] font-mono text-slate-400">agent_execution.log</span>
+          </div>
+          <div className="flex-1 p-4 overflow-y-auto space-y-1.5 terminal-scroll">
+            {logs.length === 0 && <p className="text-slate-500 font-mono text-xs">Waiting for initialization...</p>}
+            {logs.map((log, i) => (
+              <div key={i} className="text-[11px] font-mono leading-relaxed flex gap-3">
+                <span className="text-slate-600 shrink-0">{log.time}</span>
+                <span className={`${
+                  log.agent==='datagen'  ? 'text-blue-400'   :
+                  log.agent==='training' ? 'text-purple-400' :
+                  log.agent==='eval'     ? 'text-teal-400'   :
+                  log.agent==='error'    ? 'text-rose-400'   :
+                  'text-slate-300'
+                }`}>
+                  <span className="font-semibold opacity-70">[{log.agent}]</span> {log.message}
+                </span>
+              </div>
+            ))}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SkillsLibraryView = () => {
+  const [rows, setRows] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  
+  const load = async () => {
+    setLoading(true);
+    try { setRows(await API('/api/skills/list')); } catch(e) {}
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const filtered = rows.filter(r => !search || r.strategy_name?.toLowerCase().includes(search.toLowerCase()) || r.task_description?.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Skills Library</h2>
+        <div className="flex gap-2">
+          <div className="relative">
+            <Icon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" size={14} cls="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input type="text" placeholder="Search strategies..." className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 w-64 shadow-subtle" value={search} onChange={e=>setSearch(e.target.value)} />
+          </div>
+          <button onClick={async()=>{
+              const res = await fetch('/api/skills/export');
+              const blob = await res.blob();
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob); a.download = 'skills.json'; a.click();
+            }}
+            className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium py-2 px-3 rounded-lg text-sm shadow-subtle transition-colors">
+            Export JSON
+          </button>
+        </div>
+      </div>
+
+      <Card className="p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-200">
+                <th className="py-3 px-5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Strategy</th>
+                <th className="py-3 px-5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">Task Context</th>
+                <th className="py-3 px-5 text-[11px] font-bold text-slate-500 uppercase tracking-wider w-48">Efficacy (Win Rate)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? [...Array(4)].map((_,i)=>(
+                <tr key={i} className="animate-pulse">
+                  <td className="p-5"><div className="h-4 bg-slate-100 rounded w-24"></div></td>
+                  <td className="p-5"><div className="h-4 bg-slate-100 rounded w-48"></div></td>
+                  <td className="p-5"><div className="h-4 bg-slate-100 rounded w-20"></div></td>
+                </tr>
+              )) : filtered.map((r,i)=>(
+                <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                  <td className="py-4 px-5">
+                    <div className="font-medium text-slate-900 text-sm">{r.strategy_name}</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5 font-mono">{r.task_type || 'general'}</div>
+                  </td>
+                  <td className="py-4 px-5 text-sm text-slate-600 max-w-md truncate">{r.task_description}</td>
+                  <td className="py-4 px-5">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-900 w-12">{((r.win_rate||0)*100).toFixed(1)}%</span>
+                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-brand-500" style={{width:`${((r.win_rate||0)*100)}%`}}></div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!loading && filtered.length===0 && (
+                <tr><td colSpan="3" className="py-8 text-center text-sm text-slate-500">No telemetry data recorded.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+const ModelExport = () => {
+  const [models, setModels] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [hfRepo, setHfRepo] = useState({});
+  const [pushing, setPushing] = useState({});
+  const [msgs, setMsgs] = useState({});
+
+  useEffect(() => {
+    API('/api/models/completed').then(setModels).finally(()=>setLoading(false));
+  }, []);
+
+  const push = async (path, id) => {
+    const repo = hfRepo[id]?.trim();
+    if (!repo) { setMsgs({...msgs,[id]:'Repository name required.'}); return; }
+    setPushing({...pushing,[id]:true}); setMsgs({...msgs,[id]:''});
+    try {
+      const res = await API('/api/export/hub', { method:'POST', body: JSON.stringify({ adapter_path: path, repo_name: repo }) });
+      setMsgs({...msgs,[id]:`✓ Deployed: ${res.hub_url}`});
+    } catch(e) { setMsgs({...msgs,[id]:`Error: ${e.message}`}); }
+    finally { setPushing({...pushing,[id]:false}); }
+  };
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Deployment & Export</h2>
+      {loading ? <p className="text-sm text-slate-500">Scanning volumes...</p> : 
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {models.map(m => (
+            <Card key={m.run_id} className="flex flex-col">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">{m.run_id}</h3>
+                  <div className="flex gap-2 mt-1">
+                    <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{m.base_model}</span>
+                    <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{m.size_mb} MB</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-auto pt-5 border-t border-slate-100">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">HuggingFace Hub</label>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="org/repo-name" className="flex-1 min-w-0 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500" value={hfRepo[m.run_id]||''} onChange={e=>setHfRepo({...hfRepo,[m.run_id]:e.target.value})} />
+                  <button onClick={()=>push(m.adapter_path, m.run_id)} disabled={!!pushing[m.run_id]} className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+                    {pushing[m.run_id] ? <Icon d={ICONS.loader} size={14} cls="spin"/> : "Push"}
+                  </button>
+                </div>
+                {msgs[m.run_id] && <p className={`mt-2 text-[11px] font-medium ${msgs[m.run_id].startsWith('✓')?'text-emerald-600':'text-rose-600'}`}>{msgs[m.run_id]}</p>}
+              </div>
+            </Card>
+          ))}
+          {models.length===0 && <p className="text-sm text-slate-500 col-span-full">No deployable artifacts found. Run an engine loop to generate adapters.</p>}
+        </div>
+      }
+    </div>
+  );
+};
+
+// ─── App Shell ────────────────────────────────────────────────────────────
+const App = () => {
+  const [view, setView] = useState('new');
+  const [isRunning, setIsRunning] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [iteration, setIteration] = useState(0);
+  const [maxIter, setMaxIter] = useState(0);
+  const [scores, setScores] = useState([]);
+  const [agentStatus, setAgentStatus] = useState('Idle');
+  const [loopId, setLoopId] = useState('');
+  const isRunningRef = useRef(false);
+
+  const addLog = useCallback((agent, message) => {
+    const time = new Date().toLocaleTimeString([], { hour12:false });
+    setLogs(prev => [...prev.slice(-99), { agent, message, time }]);
+  }, []);
+
+  const startLoop = async (form) => {
+    setIsRunning(true); isRunningRef.current = true;
+    setLogs([]); setScores([]); setIteration(0); setMaxIter(form.maxIter);
+    setAgentStatus('Active'); setLoopId('');
+    addLog('system', 'Initializing engine sequence...');
+
+    try {
+      const res = await API('/api/loop/start', { method:'POST', body: JSON.stringify({ task_description: form.task, base_model: form.model, target_score: form.targetScore, max_iterations: form.maxIter }) });
+      setLoopId(res.loop_id); addLog('system', `Thread acquired: ${res.loop_id}`);
+      
+      const { token } = await API('/api/auth/token');
+      const wsProto = (['localhost','127.0.0.1'].includes(window.location.hostname) && window.location.protocol!=='https:') ? 'ws:' : 'wss:';
+      const ws = new WebSocket(`${wsProto}//${window.location.host}/ws/loop/${res.loop_id}`, [token]);
+
+      ws.onopen = () => { addLog('system', 'Telemetry link established.'); setView('live'); };
+      ws.onmessage = (evt) => {
+        let msg; try { msg = JSON.parse(evt.data); } catch { return; }
+        switch(msg.type) {
+          case 'iteration_start': setIteration(msg.iteration); setAgentStatus('Active'); addLog('system', `--- Sequence ${msg.iteration} ---`); break;
+          case 'agent_status':
+            addLog(msg.agent, msg.message);
+            setAgentStatus(msg.agent==='datagen' ? 'DataGen' : msg.agent==='training' ? 'Training' : msg.agent==='eval' ? 'Eval' : 'Active');
+            break;
+          case 'score_update': setScores(p=>[...p, msg.score]); addLog('eval', `Quality metric: ${(msg.score*100).toFixed(1)}%`); break;
+          case 'loop_complete': addLog('system', `Termination sequence. Final: ${(msg.final_score*100).toFixed(1)}%`); setAgentStatus('Complete'); setIsRunning(false); isRunningRef.current = false; ws.close(); break;
+          case 'loop_error': addLog('error', `FATAL: ${msg.message}`); setAgentStatus('Error'); setIsRunning(false); isRunningRef.current = false; ws.close(); break;
+          case 'ping': break;
+          default: if(msg.message) addLog('system', msg.message);
+        }
+      };
+      ws.onclose = () => { if(isRunningRef.current){ addLog('system', 'Telemetry lost.'); setIsRunning(false); isRunningRef.current = false; } };
+    } catch(e) { addLog('error', `Failed: ${e.message}`); setAgentStatus('Error'); setIsRunning(false); isRunningRef.current = false; }
+  };
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar */}
+      <aside className="w-64 bg-sidebar flex flex-col border-r border-slate-800 shrink-0">
+        <div className="h-16 flex items-center px-6 border-b border-slate-800/60">
+          <div className="w-6 h-6 rounded bg-brand-500 flex items-center justify-center mr-3 shadow-[0_0_12px_rgba(99,102,241,0.4)]">
+            <Icon d={ICONS.zap} size={14} cls="text-white" />
+          </div>
+          <span className="text-slate-100 font-bold tracking-wide">VikaasLoop</span>
+        </div>
+        <nav className="flex-1 py-6 px-4 space-y-1">
+          {[{id:'new',l:'Engine Setup',i:ICONS.plus}, {id:'live',l:'Telemetry',i:ICONS.activity}, {id:'skills',l:'Skills Library',i:ICONS.book}, {id:'models',l:'Deployments',i:ICONS.pkg}].map(n=>(
+            <button key={n.id} onClick={()=>setView(n.id)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${view===n.id ? 'bg-brand-500/10 text-brand-400' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
+              <Icon d={n.i} size={16} />{n.l}
+              {n.id==='live' && isRunning && <span className="ml-auto w-2 h-2 bg-emerald-400 rounded-full pulse-dot shadow-[0_0_8px_rgba(52,211,153,0.6)]" />}
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 border-t border-slate-800/60">
+          <button onClick={async () => {
+              if(!confirm('Force VRAM flush?')) return;
+              try { alert((await API('/api/models/unload', { method: 'POST' })).message); } catch(e) { alert(e.message); }
+            }} className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
+            <Icon d={ICONS.cpu} size={14} /> Flush GPU Memory
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto bg-[#fbfcfd]">
+        <div className="max-w-6xl mx-auto p-8">
+          {view==='new'    && <NewLoop onStart={startLoop} />}
+          {view==='live'   && <LiveView isRunning={isRunning} logs={logs} iteration={iteration} maxIter={maxIter} scoreHistory={scores} agentStatus={agentStatus} loopId={loopId} />}
+          {view==='skills' && <SkillsLibraryView />}
+          {view==='models' && <ModelExport />}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
