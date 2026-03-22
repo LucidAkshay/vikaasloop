@@ -1,5 +1,12 @@
-```markdown
 <div align="center">
+
+[![GitHub stars](https://img.shields.io/github/stars/LucidAkshay/vikaasloop?style=social)](https://github.com/LucidAkshay/vikaasloop/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/LucidAkshay/vikaasloop)](https://github.com/LucidAkshay/vikaasloop/issues)
+[![GitHub forks](https://img.shields.io/github/forks/LucidAkshay/vikaasloop?style=social)](https://github.com/LucidAkshay/vikaasloop/network/members)
+[![GitHub license](https://img.shields.io/github/license/LucidAkshay/vikaasloop)](https://github.com/LucidAkshay/vikaasloop/blob/main/LICENSE)
+[![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg?style=flat)](https://github.com/LucidAkshay/vikaasloop/blob/main/CONTRIBUTING.md)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white)](https://github.com/sponsors/LucidAkshay)
+[![Reddit](https://img.shields.io/badge/Reddit-LucidAkshay-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/user/AkshayCodes/)
 
 <br/>
 
@@ -13,6 +20,15 @@
 ```
 
 **VikaasLoop — The Self-Improving LLM Fine-Tuning Engine**
+
+[![Python](https://img.shields.io/badge/Python-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-00539B?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=flat&logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=flat&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
+[![Google Gemini](https://img.shields.io/badge/Google_Gemini-4285F4?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)
+[![HuggingFace](https://img.shields.io/badge/%F0%9F%A4%97-Hugging%20Face-yellow)](https://huggingface.co/)
 
 The first open-source tool that closes the full loop between data generation, model training, quality evaluation, and strategy learning — autonomously, iteratively, and for free.
 
@@ -56,7 +72,7 @@ VikaasLoop does the rest — automatically, in a loop, getting smarter with each
 │                                                                 │
 │   Skills Library        DataGen Agent        Training Agent     │
 │   ┌──────────┐          ┌──────────┐         ┌──────────┐       │
-│   │ What     │ ──hint ─▶│ Generate │ ──data──▶│ Fine-   │       │
+│   │ What     │ ──hint──▶│ Generate │ ──data──▶│ Fine-   │       │
 │   │ worked   │          │ training │         │ tune with│       │
 │   │ before   │          │ data     │         │ LoRA     │       │
 │   └──────────┘          └──────────┘         └──────────┘       │
@@ -356,7 +372,7 @@ VikaasLoop is built for the community. Contributions are deeply welcome.
 
 ```bash
 # Fork the repo on GitHub, then:
-git clone https://github.com/LucidAkshay/vikaasloop.git
+git clone https://github.com/YOUR_GITHUB_USERNAME/vikaasloop.git
 cd vikaasloop
 
 # Create a branch for your feature
@@ -400,3 +416,5 @@ Built with love in India 🇮🇳 for the global open-source community
 
 **Akshay Sharma**
 Creator of VikaasLoop and the open-source Kavach Application (Tactical Zero-Trust Firewall for Autonomous AI). Brand Owner at Amrutya Essence. Passionate about building AI tools that solve real problems people didn't know they had.
+
+🌐 **Personal Website:** [https://lucidakshay.dev](https://lucidakshay.dev)
