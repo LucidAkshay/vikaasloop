@@ -66,6 +66,7 @@ def _get_semaphore() -> asyncio.Semaphore:
 
 import re
 
+
 def clean_gemini_json_response(text: str) -> str:
     """Strip markdown code fences (```json
     Works even if Gemini adds extra newlines or just uses ``` without 'json'."""
@@ -73,12 +74,15 @@ def clean_gemini_json_response(text: str) -> str:
         return text
 
     # Remove opening fence: ```json or just ```
-    text = re.sub(r'^\s*```(?:json)?\s*\n?', '', text, flags=re.IGNORECASE | re.MULTILINE)
-    
+    text = re.sub(
+        r"^\s*```(?:json)?\s*\n?", "", text, flags=re.IGNORECASE | re.MULTILINE
+    )
+
     # Remove closing fence: ```
-    text = re.sub(r'\n?\s*```\s*$', '', text, flags=re.IGNORECASE | re.MULTILINE)
-    
+    text = re.sub(r"\n?\s*```\s*$", "", text, flags=re.IGNORECASE | re.MULTILINE)
+
     return text.strip()
+
 
 # ---------------------------------------------------------------------------
 # Gemini API call with retry

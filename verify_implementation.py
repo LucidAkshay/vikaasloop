@@ -4,6 +4,7 @@
 # Smoke tests for core components
 
 import os
+
 os.environ["BITSANDBYTES_NO_CUDA"] = "1"
 import asyncio
 import gc
@@ -162,8 +163,10 @@ async def main():
     except Exception as e:
         print(f"!! VERIFICATION FAILED: {str(e)}")
         import traceback
-        traceback.print_exc()   # This will print the exact line number and error
+
+        traceback.print_exc()  # This will print the exact line number and error
         import sys
+
         sys.exit(1)
 
 
