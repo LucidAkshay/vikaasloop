@@ -92,9 +92,10 @@ class DataPartitioner:
         tmp_path = training_data_path + ".tmp"
         written = 0
         try:
-            with open(training_data_path, "r", encoding="utf-8") as src, open(
-                tmp_path, "w", encoding="utf-8"
-            ) as dst:
+            with (
+                open(training_data_path, "r", encoding="utf-8") as src,
+                open(tmp_path, "w", encoding="utf-8") as dst,
+            ):
                 for line in src:
                     if line.strip():
                         if written < trim_at:
