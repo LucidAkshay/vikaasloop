@@ -6,7 +6,7 @@
 [![GitHub license](https://img.shields.io/github/license/LucidAkshay/vikaasloop)](https://github.com/LucidAkshay/vikaasloop/blob/main/LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg?style=flat)](https://github.com/LucidAkshay/vikaasloop/blob/main/CONTRIBUTING.md)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-%23db61a2.svg?&logo=github&logoColor=white)](https://github.com/sponsors/LucidAkshay)
-[![Reddit](https://img.shields.io/badge/Reddit-LucidAkshay-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/user/AkshayCodes/)
+[![Reddit](https://img.shields.io/badge/Reddit-AkshayCodes-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/user/AkshayCodes/)
 
 <br/>
 
