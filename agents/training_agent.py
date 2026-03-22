@@ -17,9 +17,15 @@ import bitsandbytes  # Required for Windows environment variable setup and 4-bit
 import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import (AutoModelForCausalLM, AutoTokenizer,
-                          BitsAndBytesConfig, TrainerCallback, TrainerControl,
-                          TrainerState, TrainingArguments)
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    TrainerCallback,
+    TrainerControl,
+    TrainerState,
+    TrainingArguments,
+)
 from trl import SFTTrainer
 
 from utils.formatter import format_training_pair
@@ -299,3 +305,6 @@ class TrainingAgent:
             "training_time_seconds": time.time() - start_time,
             "adapter_path": self.adapter_path,
         }
+
+
+# VikaasLoop Engine: Force Re-index

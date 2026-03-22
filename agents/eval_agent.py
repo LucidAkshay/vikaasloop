@@ -11,8 +11,12 @@ import os
 from typing import Any, Dict, List, Optional, Tuple
 
 from google import genai
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -294,3 +298,6 @@ VERDICT (A/B/T):"""
             "total_evaluated": 0,
             "sample_comparisons": [],
         }
+
+
+# VikaasLoop Engine: Force Re-index

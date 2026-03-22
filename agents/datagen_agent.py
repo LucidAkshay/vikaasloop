@@ -14,8 +14,12 @@ from typing import Any, Dict, List, Optional
 
 from google import genai
 from google.genai import types
-from tenacity import (retry, retry_if_exception_type, stop_after_attempt,
-                      wait_exponential)
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from config import settings
 from utils.formatter import format_training_pair
@@ -318,3 +322,5 @@ async def run_datagen_pipeline(
 
 
 # EOF
+
+# VikaasLoop Engine: Force Re-index
