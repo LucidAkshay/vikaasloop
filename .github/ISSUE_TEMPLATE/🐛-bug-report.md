@@ -1,18 +1,10 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: "\U0001F41B Bug Report"
+about: Report a technical failure or edge case in the VikaasLoop engine
 title: ''
 labels: ''
 assignees: ''
 
----
-
----
-name: "🐛 Bug Report"
-about: "Report a technical failure or edge case in the VikaasLoop engine"
-title: "[BUG] <Describe the issue briefly>"
-labels: "bug"
-assignees: ""
 ---
 
 ### 🛑 Failure Description
